@@ -1,0 +1,306 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   F1 Design System — tokens de branding
+   Inspirado no F1 TV: fundo preto, accent vermelho, tipografia condensada
+   em maiúsculas (Titillium Web ≈ fonte oficial "Formula1"), cantos retos.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700;900&display=swap');
+
+:root {
+  /* Marca */
+  --f1-red:        #e10600;  /* vermelho oficial da F1 */
+  --f1-red-dark:   #b30500;
+  --f1-black:      #0a0a0f;  /* fundo geral (quase preto) */
+  --f1-carbon:     #15151e;  /* superfícies / cards */
+  --f1-carbon-2:   #1f1f2b;  /* superfícies elevadas / hover */
+  --f1-line:       #2a2a38;  /* bordas / divisórias */
+
+  /* Texto */
+  --txt:           #ffffff;
+  --txt-dim:       #b8b8c4;
+  --txt-mute:      #6b6b7b;
+
+  /* Setores (padrão F1 timing) */
+  --sector-1:      #f5c518;  /* amarelo */
+  --sector-2:      #e10600;  /* vermelho */
+  --sector-3:      #2ea3f2;  /* azul */
+
+  /* Estados de tempo (padrão F1: roxo/verde/amarelo) */
+  --time-purple:   #b02fff;  /* melhor da sessão / recorde */
+  --time-green:    #24d15e;  /* melhor pessoal */
+  --time-yellow:   #f5c518;  /* mais lento */
+
+  /* Feedback */
+  --ok:            #24d15e;
+  --warn:          #f5c518;
+
+  /* Tipografia */
+  --font: 'Titillium Web', system-ui, sans-serif;
+  --radius: 3px;              /* F1 usa cantos quase retos */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--f1-black);
+  color: var(--txt);
+  font-family: var(--font);
+  font-size: 14px;
+  padding: 24px 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ── Header — faixa vermelha no estilo F1 ── */
+.header {
+  margin-bottom: 20px;
+  border-left: 6px solid var(--f1-red);
+  padding-left: 14px;
+}
+.header h1 {
+  font-size: 1.5rem; font-weight: 900; color: var(--txt);
+  text-transform: uppercase; letter-spacing: 0.06em; font-style: italic;
+}
+.header p { color: var(--txt-mute); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ── Controls ── */
+.controls {
+  display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+  background: var(--f1-carbon);
+  border: 1px solid var(--f1-line);
+  border-radius: var(--radius);
+  padding: 16px 20px; margin-bottom: 16px;
+}
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font-size: 0.7rem; color: var(--txt-mute); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.field input, .field select {
+  background: var(--f1-black); border: 1px solid var(--f1-line); color: var(--txt);
+  border-radius: var(--radius); padding: 6px 10px; font-size: 0.85rem; width: 80px;
+  font-family: var(--font);
+}
+.btn {
+  border: none; border-radius: var(--radius); padding: 9px 22px;
+  font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: filter 0.15s;
+  text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font);
+}
+.btn:hover { filter: brightness(1.15); }
+.btn-primary { background: var(--f1-red); color: #fff; }
+.btn-ghost   { background: var(--f1-carbon-2); color: var(--txt-dim); border: 1px solid var(--f1-line); }
+
+/* ── Progress ── */
+.progress-row {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  font-size: 0.78rem; color: var(--txt-mute); text-transform: uppercase; letter-spacing: 0.04em;
+}
+.progress-bar-wrap { flex: 1; background: var(--f1-carbon); border-radius: var(--radius); height: 6px; overflow: hidden; }
+.progress-bar { height: 100%; background: var(--f1-red); border-radius: var(--radius); width: 0%; transition: width 0.3s; }
+
+/* ── Performance panel ── */
+.perf-row { display: flex; gap: 10px; margin-bottom: 16px; }
+.perf-card {
+  background: var(--f1-carbon); border: 1px solid var(--f1-line);
+  border-radius: var(--radius); padding: 10px 16px; text-align: center; min-width: 130px;
+}
+.perf-card .plabel { font-size: 0.66rem; color: var(--txt-mute); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+.perf-card .pval   { font-size: 1.1rem; font-weight: 700; color: var(--txt); }
+.perf-card .pval.good { color: var(--ok); }
+.perf-card .pval.warn { color: var(--warn); }
+
+/* ── Badge (seed) ── */
+.det-badge {
+  padding: 8px 14px; border-radius: var(--radius); font-size: 0.78rem; font-weight: 700;
+  display: inline-block; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.det-badge.ok      { background: rgba(36, 209, 94, 0.12); color: var(--ok); border: 1px solid rgba(36, 209, 94, 0.4); }
+.det-badge.pending { background: var(--f1-carbon-2); color: var(--txt-mute); border: 1px solid var(--f1-line); }
+
+/* ── Timing table ── */
+.table-wrap { overflow-x: auto; background: var(--f1-black); border: 1px solid var(--f1-line); border-radius: var(--radius); }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed; }
+thead th {
+  background: var(--f1-carbon-2); color: var(--txt-mute);
+  font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 9px 12px; text-align: left; white-space: nowrap; border-bottom: 2px solid var(--f1-red);
+}
+tbody tr { border-bottom: 1px solid var(--f1-line); cursor: pointer; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--f1-carbon); }
+tbody tr.row-selected { background: rgba(225, 6, 0, 0.14); box-shadow: inset 4px 0 0 var(--f1-red); }
+tbody tr.row-selected:hover { background: rgba(225, 6, 0, 0.2); }
+tbody td { padding: 7px 12px; white-space: nowrap; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; }
+
+/* Larguras fixas por coluna (7 colunas) */
+th:nth-child(1), td:nth-child(1) { width: 62px;  }  /* POS */
+th:nth-child(2), td:nth-child(2) { width: 76px;  }  /* PILOTO (faixa equipe + código) */
+th:nth-child(3), td:nth-child(3) { width: 56px;  }  /* VOLTA */
+th:nth-child(4), td:nth-child(4) { width: 110px; }  /* MELHOR VOLTA */
+th:nth-child(5), td:nth-child(5) { width: 90px;  }  /* GAP */
+th:nth-child(6), td:nth-child(6) { width: auto;  }  /* MINI-SETORES */
+th:nth-child(7), td:nth-child(7) { width: 110px; }  /* ÚLTIMA VOLTA */
+
+.td-pos    { color: var(--txt); font-weight: 700; }
+.td-driver { font-weight: 700; color: var(--txt); letter-spacing: 0.04em; text-transform: uppercase;
+             display: flex; align-items: center; gap: 7px; }
+/* faixa colorida da equipe à esquerda do nome (estilo F1 TV) */
+.team-bar { width: 4px; height: 15px; border-radius: 1px; flex: none; }
+.td-lap    { color: var(--txt-dim); }
+.td-time   { color: var(--txt); font-variant-numeric: tabular-nums; font-weight: 700; }
+.td-fastest-lap { color: var(--time-purple); font-weight: 700; }
+.td-gap    { color: var(--txt-dim); font-variant-numeric: tabular-nums; font-weight: 700; }
+.td-gap.leader { color: var(--txt-mute); }
+.td-gap.battle { color: #ff5b4d; font-weight: 700; }  /* intervalo < 1s → disputa */
+
+/* header da coluna de gap: clicável para alternar líder/intervalo */
+.th-gap-toggle { cursor: pointer; user-select: none; color: var(--txt-dim); }
+.th-gap-toggle:hover { color: var(--f1-red); }
+
+.pos-medal-1 { color: var(--sector-1); }
+.pos-medal-2 { color: #c8c8d0; }
+.pos-medal-3 { color: #cd7f32; }
+
+/* ── Lap nav ── */
+.lap-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.8rem; color: var(--txt-mute); }
+.lap-nav button {
+  background: var(--f1-carbon-2); border: 1px solid var(--f1-line); color: var(--txt);
+  border-radius: var(--radius); padding: 5px 12px; cursor: pointer; font-size: 0.8rem;
+  font-family: var(--font); font-weight: 600;
+}
+.lap-nav button:hover:not(:disabled) { filter: brightness(1.2); }
+.lap-nav button:disabled { opacity: 0.35; cursor: default; }
+.lap-nav .lap-label { font-weight: 700; color: var(--txt); min-width: 80px; text-align: center;
+                      text-transform: uppercase; letter-spacing: 0.03em; }
+
+/* ── Controle de velocidade (select + botões +/-) ── */
+.speed-ctl { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
+.speed-ctl .speed-step {
+  padding: 5px 10px; font-weight: 700; letter-spacing: 0.02em;
+  background: var(--f1-carbon-2); border: 1px solid var(--f1-line); color: var(--txt);
+  border-radius: var(--radius); cursor: pointer; font-family: var(--font); font-size: 0.8rem;
+  white-space: nowrap;
+}
+.speed-ctl .speed-step:hover:not(:disabled) { filter: brightness(1.25); border-color: var(--f1-red); }
+.speed-ctl .speed-step:disabled { opacity: 0.35; cursor: default; }
+
+.empty-state { text-align: center; padding: 40px; color: var(--txt-mute); font-size: 0.85rem;
+               text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ── Track panel ── */
+.track-panel { background: var(--f1-carbon); border: 1px solid var(--f1-line); border-radius: var(--radius); padding: 16px 20px; }
+.track-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.track-name { font-size: 1.05rem; font-weight: 900; color: var(--txt); text-transform: uppercase; letter-spacing: 0.04em; font-style: italic; }
+.track-country { font-size: 0.78rem; color: var(--txt-mute); text-transform: uppercase; letter-spacing: 0.05em; }
+.track-laps { font-size: 0.76rem; color: var(--txt-mute); margin-left: auto; text-transform: uppercase; letter-spacing: 0.04em; }
+.difficulty-badge {
+  font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 2px 8px; border-radius: var(--radius);
+}
+.difficulty-badge.easy   { background: rgba(36, 209, 94, 0.15); color: var(--ok); }
+.difficulty-badge.medium { background: rgba(245, 197, 24, 0.15); color: var(--warn); }
+.difficulty-badge.hard   { background: rgba(225, 6, 0, 0.15); color: #ff6b66; }
+
+.track-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.attr-group-title { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--txt-mute); margin-bottom: 8px; }
+.attr-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.attr-label { font-size: 0.72rem; color: var(--txt-dim); width: 140px; flex-shrink: 0; }
+.attr-bar-wrap { flex: 1; background: var(--f1-black); border-radius: 2px; height: 5px; overflow: hidden; }
+.attr-bar { height: 100%; border-radius: 2px; transition: width 0.3s; }
+.attr-val { font-size: 0.68rem; color: var(--txt-mute); width: 16px; text-align: right; }
+
+/* ── Mini-sector bar ── */
+.mini-bar { display: flex; gap: 2px; align-items: center; }
+.mini-bar-group { display: flex; gap: 1px; }
+.mini-bar-sep { width: 4px; flex: none; }
+.ms-cell { width: 10px; height: 8px; border-radius: 1px; background: var(--f1-carbon-2); flex: none; }
+.ms-fastest  { background: var(--time-purple); }
+.ms-fast     { background: var(--time-green); }
+.ms-mid      { background: var(--time-yellow); }
+.ms-slow     { background: #f97316; }
+.ms-slowest  { background: var(--f1-red); }
+.ms-empty    { background: var(--f1-carbon-2); }
+.ms-run      { background: #4a4a5a; }
+
+.td-mini { padding: 7px 8px; }
+.sector-time { display: inline-block; width: 52px; font-variant-numeric: tabular-nums;
+               font-size: 0.72rem; font-weight: 700; color: var(--txt-mute); margin-left: 4px; text-align: left; }
+.sector-time.st-purple { color: var(--time-purple); }
+.sector-time.st-green  { color: var(--time-green); }
+.sector-time.st-yellow { color: var(--time-yellow); }
+
+/* ── Track map ── */
+.track-map-card { background: var(--f1-carbon); border: 1px solid var(--f1-line); border-radius: var(--radius); padding: 12px; margin-bottom: 16px; }
+
+/* ── Largada: semáforo da F1 sobre o mapa ── */
+.track-wrap { position: relative; }
+.lights-overlay {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 5;
+  background: radial-gradient(circle at center, rgba(10,10,15,0.35), rgba(10,10,15,0.72));
+  transition: opacity 0.25s ease;
+}
+.lights-overlay.out { opacity: 0; }   /* "lights out" — tudo apaga e some */
+
+/* Painel do semáforo: 5 postes, cada um com 2 lâmpadas (como na F1) */
+.lights-gantry {
+  display: flex; gap: clamp(8px, 1.6vw, 18px);
+  padding: clamp(10px, 1.8vw, 20px);
+  background: #0b0b10;
+  border: 2px solid #26262f;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.light-post {
+  display: flex; flex-direction: column; gap: clamp(6px, 1.1vw, 12px);
+  padding: clamp(5px, 0.9vw, 10px);
+  background: #050507; border-radius: 6px;
+}
+.light-bulb {
+  width: clamp(26px, 4.4vw, 52px); height: clamp(26px, 4.4vw, 52px);
+  border-radius: 50%;
+  background: #1b0202;                       /* apagada: vermelho quase preto */
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+.light-post.on .light-bulb {
+  background: radial-gradient(circle at 40% 35%, #ff5a4d, #e10600 55%, #8a0400);
+  box-shadow: 0 0 18px 4px rgba(225,6,0,0.7), inset 0 1px 3px rgba(255,255,255,0.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lights-overlay, .light-bulb { transition: none; }
+}
+#trackCanvas { display: block; width: 100%; height: auto; background: var(--f1-black); border-radius: var(--radius); }
+.map-driver-label {
+  position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(10, 10, 15, 0.9); border: 1px solid var(--f1-line);
+  border-radius: var(--radius); padding: 6px 14px; font-weight: 700; z-index: 2; pointer-events: none;
+}
+.map-driver-label .mdl-flag { font-size: 1.1rem; }
+.map-driver-label .mdl-code { font-size: 1rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.map-driver-label .mdl-pos  { font-size: 0.78rem; color: var(--txt-mute); }
+
+/* ── Resumo da corrida (pódio + volta mais rápida) ── */
+.race-summary {
+  display: flex; gap: 16px; align-items: stretch; flex-wrap: wrap;
+  background: var(--f1-carbon); border: 1px solid var(--f1-line);
+  border-left: 6px solid var(--f1-red); border-radius: var(--radius);
+  padding: 14px 18px; margin-bottom: 16px;
+}
+.rs-podium { display: flex; gap: 10px; flex: 1; flex-wrap: wrap; }
+.rs-pos {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--f1-black); border: 1px solid var(--f1-line);
+  border-radius: var(--radius); padding: 8px 14px; min-width: 150px;
+}
+.rs-pos.rs-p1 { border-color: var(--sector-1); }
+.rs-medal { font-size: 1rem; font-weight: 900; width: 20px; text-align: center; }
+.rs-bar { width: 4px; height: 20px; border-radius: 1px; }
+.rs-code { font-weight: 900; font-size: 1.05rem; letter-spacing: 0.05em; }
+.rs-gap { margin-left: auto; font-size: 0.72rem; color: var(--txt-mute); font-weight: 700;
+          font-variant-numeric: tabular-nums; text-transform: uppercase; }
+.rs-fl {
+  display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  background: var(--f1-black); border: 1px solid var(--time-purple);
+  border-radius: var(--radius); padding: 8px 16px;
+}
+.rs-fl-label { font-size: 0.6rem; color: var(--time-purple); font-weight: 700; letter-spacing: 0.1em; }
+.rs-fl-code { font-size: 1.05rem; font-weight: 900; color: var(--txt); letter-spacing: 0.05em; }
+.rs-fl-time { font-size: 0.85rem; font-weight: 700; color: var(--time-purple); font-variant-numeric: tabular-nums; }

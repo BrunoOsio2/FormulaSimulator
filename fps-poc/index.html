@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>POC — Determinismo de Simulação</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e2e8f0;
+      font-family: system-ui, sans-serif;
+      font-size: 14px;
+      padding: 32px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 1.4rem; color: #fff; margin-bottom: 6px; }
+    h2 { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+    h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+    p  { line-height: 1.6; color: #94a3b8; }
+
+    /* ── Sections ── */
+    .section { margin-bottom: 24px; }
+
+    .card {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    /* ── Intro ── */
+    .intro-box {
+      background: #1a1040;
+      border: 1px solid #4c1d95;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+    }
+    .intro-box h1 { color: #c4b5fd; margin-bottom: 10px; }
+    .intro-box p  { color: #a5b4fc; margin-bottom: 8px; }
+    .intro-box .analogy {
+      background: #0f0825;
+      border-left: 3px solid #7c3aed;
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      margin-top: 12px;
+      color: #c4b5fd;
+      font-size: 0.9rem;
+    }
+
+    /* ── Steps ── */
+    .steps {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .step {
+      flex: 1;
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 16px;
+      position: relative;
+    }
+    .step.active { border-color: #7c3aed; background: #1a1040; }
+    .step .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px; height: 28px;
+      background: #7c3aed;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+    }
+    .step.done .num { background: #16a34a; }
+    .step h3 { font-size: 0.9rem; margin-bottom: 6px; color: #e2e8f0; }
+    .step p  { font-size: 0.8rem; color: #64748b; }
+    .step.active p { color: #a5b4fc; }
+
+    /* ── Controls ── */
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: flex-end;
+      margin-bottom: 8px;
+    }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 0.75rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .field select, .field input {
+      background: #0f1117;
+      border: 1px solid #2d3148;
+      color: #e2e8f0;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+    }
+    .field .hint { font-size: 0.7rem; color: #475569; margin-top: 2px; }
+
+    .btn {
+      border: none;
+      border-radius: 6px;
+      padding: 9px 22px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: #7c3aed; color: #fff; }
+    .btn-ghost   { background: #374151; color: #d1d5db; }
+
+    /* ── Two columns ── */
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+
+    .sim-card {
+      border-radius: 10px;
+      padding: 18px;
+      border: 2px solid transparent;
+    }
+    .sim-card.bad  { background: #1a0a0a; border-color: #7f1d1d; }
+    .sim-card.good { background: #0a1a0a; border-color: #14532d; }
+
+    .sim-card h2.bad-title  { color: #ef4444; }
+    .sim-card h2.good-title { color: #22c55e; }
+
+    .sim-card .desc {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-bottom: 12px;
+      line-height: 1.5;
+      padding: 8px 10px;
+      background: #0f1117;
+      border-radius: 6px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100px;
+      background: #0f1117;
+      border-radius: 6px;
+      border: 1px solid #1e2130;
+      margin-bottom: 12px;
+    }
+
+    .result-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .result-box {
+      background: #0f1117;
+      border-radius: 6px;
+      padding: 8px 10px;
+      text-align: center;
+    }
+    .result-box .rlabel { font-size: 0.65rem; color: #475569; margin-bottom: 4px; text-transform: uppercase; }
+    .result-box .rval   { font-size: 1rem; font-weight: 700; }
+    .rval.red    { color: #ef4444; }
+    .rval.green  { color: #22c55e; }
+    .rval.muted  { color: #64748b; }
+
+    .events-box {
+      background: #0f1117;
+      border-radius: 6px;
+      padding: 8px 10px;
+      height: 80px;
+      overflow-y: auto;
+      font-size: 0.72rem;
+    }
+    .events-box .ev { padding: 2px 0; border-bottom: 1px solid #1e2130; color: #64748b; }
+    .events-box .ev.bad  { color: #f87171; }
+    .events-box .ev.good { color: #4ade80; }
+    .events-label { font-size: 0.7rem; color: #475569; margin-bottom: 4px; text-transform: uppercase; }
+
+    /* ── Comparison ── */
+    .comparison-card {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .comparison-card h2 { color: #7c3aed; margin-bottom: 14px; }
+
+    .compare-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .compare-side {
+      background: #0f1117;
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .compare-side h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 10px; }
+    .compare-side h3.bad  { color: #ef4444; }
+    .compare-side h3.good { color: #22c55e; }
+
+    .delta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #1e2130;
+      font-size: 0.82rem;
+    }
+    .delta-row:last-child { border-bottom: none; }
+    .delta-label { color: #64748b; }
+    .delta-val   { font-weight: 700; font-family: monospace; }
+    .delta-val.zero { color: #22c55e; }
+    .delta-val.diff { color: #ef4444; }
+    .delta-val.muted { color: #475569; }
+
+    .verdict-box {
+      border-radius: 8px;
+      padding: 16px 18px;
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+    .verdict-box.pending      { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+    .verdict-box.deterministic { background: #052e16; color: #86efac; border: 1px solid #16a34a; }
+    .verdict-box.divergent    { background: #450a0a; color: #fca5a5; border: 1px solid #dc2626; }
+
+    .verdict-box strong { font-size: 1rem; display: block; margin-bottom: 6px; }
+
+    /* ── Run badge ── */
+    .run-badge {
+      display: inline-block;
+      background: #374151;
+      color: #9ca3af;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .run-badge.a { background: #1e3a5f; color: #93c5fd; }
+    .run-badge.b { background: #3b1f5e; color: #c4b5fd; }
+  </style>
+</head>
+<body>
+
+<!-- ── INTRO ── -->
+<div class="intro-box">
+  <h1>O que é determinismo em simulações de jogos?</h1>
+  <p>
+    Em um jogo de manager (tipo Football Manager), a partida é <strong>simulada</strong> — o computador calcula matematicamente o que acontece a cada segundo de jogo.
+    Para isso funcionar corretamente, a simulação precisa ser <strong>determinística</strong>: dado o mesmo ponto de partida, o resultado sempre tem que ser idêntico.
+  </p>
+  <p style="margin-top:8px">
+    Se não for determinística: dois jogadores com o mesmo time e a mesma tática podem ter resultados diferentes. Um replay de partida vai mostrar eventos em lugares diferentes. Saves ficam corrompidos ao carregar em máquinas distintas.
+  </p>
+  <div class="analogy">
+    <strong>Analogia:</strong> imagine uma calculadora que, dependendo de quantas vezes por segundo você aperta "=" ela dá respostas diferentes para "2 + 2". Esse é exatamente o bug que acontece quando a simulação depende do FPS.
+  </div>
+</div>
+
+<!-- ── STEPS ── -->
+<div class="steps" id="stepsRow">
+  <div class="step active" id="step1">
+    <div class="num">1</div>
+    <h3>Configure e rode a primeira simulação</h3>
+    <p>Escolha o FPS abaixo e clique em "Rodar". Os dois métodos rodam juntos com a mesma seed.</p>
+  </div>
+  <div class="step" id="step2">
+    <div class="num">2</div>
+    <h3>Mude o FPS e rode de novo</h3>
+    <p>Troque o FPS (ex: de 60 para 30) e rode uma segunda vez. Isso simula dois computadores diferentes.</p>
+  </div>
+  <div class="step" id="step3">
+    <div class="num">3</div>
+    <h3>Veja o resultado da comparação</h3>
+    <p>O painel abaixo mostra qual método produziu o mesmo resultado e qual divergiu.</p>
+  </div>
+</div>
+
+<!-- ── CONTROLS ── -->
+<div class="card section">
+  <div class="controls-row">
+    <div class="field">
+      <label>FPS do método ruim</label>
+      <select id="fpsMode">
+        <option value="15">15 FPS (computador lento)</option>
+        <option value="30">30 FPS</option>
+        <option value="60" selected>60 FPS</option>
+        <option value="120">120 FPS (monitor gamer)</option>
+        <option value="variable">FPS variável (travamentos)</option>
+      </select>
+      <span class="hint">Simula o que acontece em diferentes hardwares</span>
+    </div>
+
+    <div class="field">
+      <label>Taxa de tick fixa</label>
+      <select id="tickRate">
+        <option value="20">20 Hz</option>
+        <option value="30" selected>30 Hz</option>
+        <option value="60">60 Hz</option>
+      </select>
+      <span class="hint">A simulação determinística usa sempre esse valor</span>
+    </div>
+
+    <div class="field">
+      <label>Seed (ponto de partida)</label>
+      <input type="number" id="seed" value="42" min="1" max="99999" style="width:80px" />
+      <span class="hint">Mesma seed = mesma partida teórica</span>
+    </div>
+
+    <div class="field">
+      <label>Duração (segundos de jogo)</label>
+      <input type="number" id="duration" value="10" min="2" max="60" style="width:70px" />
+    </div>
+
+    <button class="btn btn-primary" id="btnStart">▶ Rodar Simulação</button>
+    <button class="btn btn-ghost"   id="btnReset">↺ Resetar</button>
+  </div>
+  <div id="runStatus" style="font-size:0.78rem;color:#475569;margin-top:4px"></div>
+</div>
+
+<!-- ── SIMULATION PANELS ── -->
+<div class="cols">
+
+  <!-- BAD -->
+  <div class="sim-card bad">
+    <h2 class="bad-title">Método ruim — depende do FPS</h2>
+    <div class="desc">
+      A cada frame, multiplica a física por <code>deltaTime</code> (tempo desde o último frame).
+      O problema: com FPS diferente, o número de frames é diferente, a sequência de números aleatórios avança de forma diferente, e os resultados divergem.
+    </div>
+    <canvas id="canvasBad" width="600" height="100"></canvas>
+    <div class="result-row">
+      <div class="result-box">
+        <div class="rlabel">Posição final</div>
+        <div class="rval red" id="badPos">—</div>
+      </div>
+      <div class="result-box">
+        <div class="rlabel">Energia acumulada</div>
+        <div class="rval red" id="badEnergy">—</div>
+      </div>
+      <div class="result-box">
+        <div class="rlabel">Eventos disparados</div>
+        <div class="rval red" id="badEvents">—</div>
+      </div>
+    </div>
+    <div class="events-label">Eventos gerados (gols, faltas, etc.):</div>
+    <div class="events-box" id="logBad"><span style="color:#475569;font-size:0.75rem">Aguardando simulação...</span></div>
+  </div>
+
+  <!-- GOOD -->
+  <div class="sim-card good">
+    <h2 class="good-title">Método certo — tick fixo</h2>
+    <div class="desc">
+      A simulação avança em passos fixos (ex: a cada 1/30 de segundo), independente do FPS de renderização.
+      O resultado é sempre idêntico com a mesma seed — não importa o hardware, velocidade do computador, ou FPS.
+    </div>
+    <canvas id="canvasGood" width="600" height="100"></canvas>
+    <div class="result-row">
+      <div class="result-box">
+        <div class="rlabel">Posição final</div>
+        <div class="rval green" id="goodPos">—</div>
+      </div>
+      <div class="result-box">
+        <div class="rlabel">Energia acumulada</div>
+        <div class="rval green" id="goodEnergy">—</div>
+      </div>
+      <div class="result-box">
+        <div class="rlabel">Eventos disparados</div>
+        <div class="rval green" id="goodEvents">—</div>
+      </div>
+    </div>
+    <div class="events-label">Eventos gerados (gols, faltas, etc.):</div>
+    <div class="events-box" id="logGood"><span style="color:#475569;font-size:0.75rem">Aguardando simulação...</span></div>
+  </div>
+
+</div>
+
+<!-- ── COMPARISON ── -->
+<div class="comparison-card">
+  <h2>Comparação entre execuções</h2>
+
+  <div class="compare-row">
+    <div class="compare-side">
+      <h3 class="bad">Método ruim — diferença entre as duas execuções</h3>
+      <div class="delta-row">
+        <span class="delta-label">Posição final mudou?</span>
+        <span class="delta-val muted" id="diffBadPos">—</span>
+      </div>
+      <div class="delta-row">
+        <span class="delta-label">Energia final mudou?</span>
+        <span class="delta-val muted" id="diffBadEnergy">—</span>
+      </div>
+      <div class="delta-row">
+        <span class="delta-label">Nº de eventos mudou?</span>
+        <span class="delta-val muted" id="diffBadEvents">—</span>
+      </div>
+    </div>
+    <div class="compare-side">
+      <h3 class="good">Método certo — diferença entre as duas execuções</h3>
+      <div class="delta-row">
+        <span class="delta-label">Posição final mudou?</span>
+        <span class="delta-val muted" id="diffGoodPos">—</span>
+      </div>
+      <div class="delta-row">
+        <span class="delta-label">Energia final mudou?</span>
+        <span class="delta-val muted" id="diffGoodEnergy">—</span>
+      </div>
+      <div class="delta-row">
+        <span class="delta-label">Nº de eventos mudou?</span>
+        <span class="delta-val muted" id="diffGoodEvents">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict-box pending" id="verdict">
+    <strong>Aguardando...</strong>
+    Rode a simulação duas vezes para ver a comparação. Na segunda vez, mude o FPS para simular um hardware diferente.
+  </div>
+</div>
+
+<script src="sim.js"></script>
+</body>
+</html>

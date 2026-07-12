@@ -1,0 +1,22 @@
+{
+  "name": "f1-poc",
+  "version": "1.0.0",
+  "main": "src/sim.js",
+  "scripts": {
+    "test": "node tests/test-unit.js",
+    "test:unit": "node tests/test-unit.js",
+    "test:e2e": "node tests/test.js",
+    "test:all": "node tests/test-unit.js && node tests/test.js",
+    "coverage": "c8 node tests/test-unit.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "playwright": "^1.61.1"
+  },
+  "devDependencies": {
+    "c8": "^11.0.0"
+  }
+}
