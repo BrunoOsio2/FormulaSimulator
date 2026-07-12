@@ -2,7 +2,7 @@
 // Espelha a cobertura do POC (test-unit.js) em Vitest, exercendo cada função e
 // os invariantes do motor (CLAUDE.md §6).
 import { describe, it, expect } from 'vitest';
-import { RNG } from '../../src/lib/engine/rng';
+import { RNG, deriveSeed } from '../../src/lib/engine/rng';
 import { fmtTime, fmtGap, fmtSec } from '../../src/lib/engine/format';
 import { effectiveAttr, DRIVER_ATTRS, DRIVER_FLAG } from '../../src/lib/data/drivers';
 import { TRACKS } from '../../src/lib/data/tracks';
@@ -36,6 +36,16 @@ describe('RNG', () => {
     const r = new RNG(7);
     for (let i = 0; i < 200; i++) { const v = r.range(-5, 5); expect(v).toBeGreaterThanOrEqual(-5); expect(v).toBeLessThan(5); }
     expect(new RNG(3).range(2, 2)).toBe(2);
+  });
+  it('deriveSeed: determinística, nunca 0, descorrelaciona salt e seed', () => {
+    // T-deriveSeed (SPEC-5/7): mesma entrada → mesma saída; salts e seeds
+    // diferentes → seeds diferentes; nunca degenera para 0.
+    expect(deriveSeed(9, 3)).toBe(deriveSeed(9, 3));
+    expect(deriveSeed(9, 3)).not.toBe(deriveSeed(9, 4));      // salt diferente
+    expect(deriveSeed(9, 3)).not.toBe(deriveSeed(10, 3));     // seed diferente
+    const s = new Set<number>();
+    for (let i = 0; i < 100; i++) { const v = deriveSeed(0, i); expect(v).not.toBe(0); s.add(v); }
+    expect(s.size).toBeGreaterThan(90);                       // baixa colisão entre salts
   });
 });
 
@@ -184,6 +194,39 @@ describe('runRace (invariantes)', () => {
     let vios = 0;
     for (let i = 0; i < 20; i++) if (runRace('interlagos').finalState[0].code !== 'VER') vios++;
     expect(vios).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('runRace — seed (I1)', () => {
+  // resumo comparável de um RaceResult (barato de comparar, cobre o essencial)
+  const digest = (r: ReturnType<typeof runRace>) => ({
+    finalState: r.finalState,
+    nFrames: r.sectorSnapshots.length,
+    firstFrame: r.sectorSnapshots[0],
+    midFrame: r.sectorSnapshots[Math.floor(r.sectorSnapshots.length / 2)],
+    sectorColors: r.sectorColors,
+  });
+
+  it('T-SPEC2: mesma (track, seed) → resultado idêntico', () => {
+    for (const t of ['interlagos', 'monaco', 'spa']) {
+      expect(digest(runRace(t, 123))).toEqual(digest(runRace(t, 123)));
+    }
+  });
+  it('T-SPEC4: seeds diferentes → corridas diferentes', () => {
+    const a = runRace('interlagos', 1).finalState.map(d => d.totalTime);
+    const b = runRace('interlagos', 2).finalState.map(d => d.totalTime);
+    expect(a).not.toEqual(b);
+  });
+  it('T-SPEC3: sem seed → corridas únicas (Math.random)', () => {
+    const a = runRace('interlagos').finalState.map(d => d.totalTime);
+    const b = runRace('interlagos').finalState.map(d => d.totalTime);
+    expect(a).not.toEqual(b);
+  });
+  it('T-SPEC7: seed 0 é válida e reproduzível; 22 terminam', () => {
+    const a = runRace('interlagos', 0), b = runRace('interlagos', 0);
+    expect(a.finalState.length).toBe(22);
+    expect(a.finalState.every(d => d.lapsCompleted === a.track.laps)).toBe(true);
+    expect(digest(a)).toEqual(digest(b));
   });
 });
 

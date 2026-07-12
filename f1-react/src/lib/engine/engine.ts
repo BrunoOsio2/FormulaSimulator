@@ -2,6 +2,7 @@ import type { RaceResult, Snapshot, Timeline } from './types';
 import { TRACKS } from '../data/tracks';
 import { MINI_PER_SECTOR, buildDrivers } from './skills';
 import { computeTimeline } from './timeline';
+import { deriveSeed } from './rng';
 
 // ─── Motor da corrida ──────────────────────────────────────────────────────────
 // Estratégia:
@@ -10,18 +11,21 @@ import { computeTimeline } from './timeline';
 //   3. Emite um frame de playback a cada avanço do piloto da frente; após o líder
 //      terminar, emite um frame por evento para os retardatários cruzarem a linha.
 //   4. A barra de mini-setores de cada piloto reflete o progresso da volta atual.
-export function runRace(trackKey = 'interlagos'): RaceResult {
+export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
   const track      = TRACKS[trackKey];
   const drivers    = buildDrivers(track);
   const TOTAL_LAPS = track.laps;
 
-  // Pré-computa timelines (seed aleatória por piloto → cada corrida é única).
+  // Seed-mãe: reproduzível se `seed` for passado; senão aleatória (cada corrida
+  // única). Cada piloto recebe uma seed derivada de (master, índice de grid) via
+  // deriveSeed — determinística e descorrelacionada entre pilotos.
+  const master = seed ?? Math.floor(Math.random() * 0xFFFFFFFF);
   // startOffset = i * gapPerPos: grid de largada — P1 (i=0) larga em 0, cada
   // posição atrás larga um pouco depois, criando gaps reais desde o começo.
   const timelines: Timeline[] = drivers.map((d, i) => ({
     code:   d.code,
     events: computeTimeline(d.code, d.baseMini, track,
-              Math.floor(Math.random() * 0xFFFFFFFF), i * track.gapPerPos),
+              deriveSeed(master, i), i * track.gapPerPos),
   }));
 
   // Estado de exibição por piloto
