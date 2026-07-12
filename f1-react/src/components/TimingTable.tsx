@@ -29,6 +29,16 @@ const TIME_COLOR: Record<string, string> = {
   'ms-mid':     'st-yellow',
 };
 
+// Seta de momentum/forma (C6): setas de TEXTO (respeitam cor CSS, ao contrário
+// de emoji). Verde = boa, amarelo = neutra, vermelho = ruim.
+const MOMENTUM_ARROW: Record<number, { arrow: string; cls: string; title: string }> = {
+  [2]:  { arrow: '▲', cls: 'mom-up2',     title: 'Inspirado (forma ótima)' },
+  [1]:  { arrow: '△', cls: 'mom-up1',     title: 'Em alta' },
+  [0]:  { arrow: '▬', cls: 'mom-neutral', title: 'Neutro' },
+  [-1]: { arrow: '▽', cls: 'mom-down1',   title: 'Em baixa' },
+  [-2]: { arrow: '▼', cls: 'mom-down2',   title: 'Apagado (forma ruim)' },
+};
+
 interface Props {
   frame: Snapshot | null;
   result: RaceResult | null;
@@ -47,11 +57,11 @@ export function TimingTable({ frame, result, selected, onSelect }: Props) {
       <div className="table-wrap">
         <table id="timingTable">
           <thead><tr>
-            <th>POS</th><th>PILOTO</th><th>VOLTA</th><th>MELHOR VOLTA</th>
-            <th>GAP LÍDER</th><th>MINI-SETORES</th><th>ÚLTIMA VOLTA</th>
+            <th>POS</th><th>PILOTO</th><th>FORMA</th><th>VOLTA</th><th>MELHOR VOLTA</th>
+            <th>GAP LÍDER</th><th className="th-mini">MINI-SETORES</th><th>ÚLTIMA VOLTA</th>
           </tr></thead>
           <tbody id="timingBody">
-            <tr><td colSpan={7} className="empty-state">Clique em "Simular Corrida" para começar</td></tr>
+            <tr><td colSpan={8} className="empty-state">Clique em "Simular Corrida" para começar</td></tr>
           </tbody>
         </table>
       </div>
@@ -67,12 +77,17 @@ export function TimingTable({ frame, result, selected, onSelect }: Props) {
   return (
     <div className="table-wrap">
       <table id="timingTable">
+        <colgroup>
+          <col style={{ width: 46 }} /><col style={{ width: 74 }} /><col style={{ width: 52 }} />
+          <col style={{ width: 54 }} /><col style={{ width: 96 }} /><col style={{ width: 96 }} />
+          <col style={{ width: 360 }} /><col style={{ width: 96 }} />
+        </colgroup>
         <thead><tr>
-          <th>POS</th><th>PILOTO</th><th>VOLTA</th><th>MELHOR VOLTA</th>
+          <th>POS</th><th>PILOTO</th><th>FORMA</th><th>VOLTA</th><th>MELHOR VOLTA</th>
           <th className="th-gap-toggle" onClick={toggleGap} title="Clique para alternar entre gap ao líder e intervalo">
             {gapMode === 'leader' ? 'GAP LÍDER' : 'INTERVALO'} ⇅
           </th>
-          <th>MINI-SETORES</th><th>ÚLTIMA VOLTA</th>
+          <th className="th-mini">MINI-SETORES</th><th>ÚLTIMA VOLTA</th>
         </tr></thead>
         <tbody id="timingBody">
           {frame.map((r, i) => {
@@ -96,6 +111,10 @@ export function TimingTable({ frame, result, selected, onSelect }: Props) {
                   <span className="team-bar" style={{ background: DRIVER_COLOR[r.code] || '#888' }} />
                   {r.code}
                 </td>
+                {(() => {
+                  const m = MOMENTUM_ARROW[r.momentum] || MOMENTUM_ARROW[0];
+                  return <td className={`td-momentum ${m.cls}`} title={m.title}>{m.arrow}</td>;
+                })()}
                 <td className="td-lap">{r.lap}</td>
                 <td className={bestClass}>{fmtTime(r.bestLapTime)}</td>
                 <td className={gapCls}>{fmtGap(gapValue)}</td>

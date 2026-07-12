@@ -2,14 +2,16 @@ import type { RaceResult, Snapshot, Timeline } from './types';
 import { TRACKS } from '../data/tracks';
 import { MINI_PER_SECTOR, buildDrivers } from './skills';
 import { computeTimeline } from './timeline';
-import { deriveSeed } from './rng';
+import { RNG, deriveSeed } from './rng';
 import { resolveTraffic } from './traffic';
+import { overtakeChance, resolvePass } from './overtake';
+import { buildMomentumSeries, momentumAtLap } from './momentum';
 
 // ─── Motor da corrida ──────────────────────────────────────────────────────────
 // Estratégia:
 //   1. Pré-computa a timeline LIMPA de cada piloto (pace sozinho; seed por piloto).
-//   2. Aplica o tráfego (resolveTraffic): carro rápido preso atrás de um lento não
-//      passa — reescreve os tempos absolutos dos eventos (C2).
+//   2. Aplica tráfego + ultrapassagem (resolveTraffic): carro preso atrás de um
+//      mais lento forma trenzinho (C2) e pode tentar passar ao cruzar a linha (C1).
 //   3. Processa os eventos em ordem cronológica (event-driven) → frames de playback.
 //   4. Emite um frame a cada avanço do líder; após ele terminar, um por evento.
 export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
@@ -24,20 +26,33 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
   // startOffset = i * gapPerPos: grid de largada — P1 (i=0) larga em 0, cada
   // posição atrás larga um pouco depois, criando gaps reais desde o começo.
   const startOffsets = drivers.map((_, i) => i * track.gapPerPos);
+  // Momentum / forma (C6): série por fase de cada piloto, enviesada pelo handicap.
+  // RNG dedicado por piloto (salt distinto) → determinístico e sem perturbar os
+  // demais consumos de RNG (variação/erros).
+  const momentums = drivers.map((d, i) =>
+    buildMomentumSeries(d.code, track, new RNG(deriveSeed(master, 0x310AD0 + i))));
   const timelines: Timeline[] = drivers.map((d, i) => ({
     code:   d.code,
+    // RNG de variação (seed por piloto) + RNG separado de erros (C5) + momentum (C6),
+    // cada um com salt distinto para não perturbar a sequência de variação (paridade).
     events: computeTimeline(d.code, d.baseMini, track,
-              deriveSeed(master, i), startOffsets[i]),
+              deriveSeed(master, i), startOffsets[i],
+              new RNG(deriveSeed(master, 0x5A1710 + i)), momentums[i]),
   }));
 
-  // ── Tráfego (C2) ──────────────────────────────────────────────────────────
+  // ── Tráfego (C2) + Ultrapassagem (C1) ─────────────────────────────────────
   // As timelines acima são o pace LIMPO (cada carro sozinho). Aqui aplicamos o
-  // tráfego: um carro que alcança outro mais lento fica preso atrás (não passa).
-  // resolveTraffic devolve o tempo absoluto resolvido de cada mini; reescrevemos
-  // event.time. O event.miniTime (duração limpa) é PRESERVADO — usado para cores
-  // (que refletem o ritmo real do piloto, não o atraso por tráfego).
+  // tráfego (preso atrás de um mais lento) e a ultrapassagem: ao cruzar a linha,
+  // 1 tentativa/volta, decidida por overtaking×defending×pista via RNG dedicado
+  // (deriveSeed(master, salt) → determinístico por seed). O event.miniTime limpo
+  // é PRESERVADO — cores refletem o ritmo real, não o atraso por tráfego.
+  const passRng = new RNG(deriveSeed(master, 0x0ADDDECA));
+  const tryPass = (attacker: number, defender: number, _lap: number): boolean => {
+    const chance = overtakeChance(drivers[attacker].code, drivers[defender].code, track);
+    return resolvePass(passRng.next(), chance);
+  };
   const clean = timelines.map(t => t.events.map(e => e.miniTime));
-  const resolved = resolveTraffic(clean, startOffsets);
+  const resolved = resolveTraffic(clean, startOffsets, undefined, tryPass);
   timelines.forEach((t, p) => {
     for (let k = 0; k < t.events.length; k++) t.events[k].time = resolved[p][k];
   });
@@ -78,11 +93,11 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
 
     const withTiming = dstate.map((d, i) => {
       const evIdx = Math.min(N - 1, timelines[i].events.length - 1);
-      return { d, timeToN: timelines[i].events[evIdx].time };
+      return { d, i, timeToN: timelines[i].events[evIdx].time };
     });
     withTiming.sort((a, b) => a.timeToN - b.timeToN);
 
-    return withTiming.map(({ d, timeToN }, pos) => ({
+    return withTiming.map(({ d, i, timeToN }, pos) => ({
       code:                 d.code,
       lap:                  d.lapsCompleted,
       sector:               d.sector,
@@ -95,6 +110,7 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
       gapToLeader:          pos === 0 ? 0 : timeToN - refTime,
       totalTime:            d.totalTime,
       finished:             d.lapsCompleted >= TOTAL_LAPS,
+      momentum:             momentumAtLap(momentums[i], d.lapsCompleted),
     }));
   };
 

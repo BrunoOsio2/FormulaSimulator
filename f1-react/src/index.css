@@ -115,7 +115,9 @@ body {
 
 /* ── Timing table ── */
 .table-wrap { overflow-x: auto; background: var(--f1-black); border: 1px solid var(--f1-line); border-radius: var(--radius); }
-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed; }
+table { width: 100%; min-width: 920px; border-collapse: collapse; font-size: 0.82rem; table-layout: fixed; }
+/* min-width acima + colgroup (na TimingTable) garantem que a coluna de
+   mini-setores não seja esmagada; o .table-wrap rola no horizontal em telas estreitas. */
 thead th {
   background: var(--f1-carbon-2); color: var(--txt-mute);
   font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
@@ -142,6 +144,13 @@ th:nth-child(7), td:nth-child(7) { width: 110px; }  /* ÚLTIMA VOLTA */
              display: flex; align-items: center; gap: 7px; }
 /* faixa colorida da equipe à esquerda do nome (estilo F1 TV) */
 .team-bar { width: 4px; height: 15px; border-radius: 1px; flex: none; }
+/* seta de momentum / forma (C6): verde=boa, amarelo=neutra, vermelho=ruim */
+.td-momentum { text-align: center; font-size: 1rem; line-height: 1; font-weight: 700; }
+.td-momentum.mom-up2   { color: #24d15e; }   /* forma ótima  — verde forte */
+.td-momentum.mom-up1   { color: #6ee88a; }   /* em alta      — verde claro */
+.td-momentum.mom-neutral { color: #f5c518; font-size: 0.6rem; } /* neutro — amarelo */
+.td-momentum.mom-down1 { color: #ff9d3a; }   /* em baixa     — laranja-vermelho */
+.td-momentum.mom-down2 { color: #e1483a; }   /* forma ruim   — vermelho forte */
 .td-lap    { color: var(--txt-dim); }
 .td-time   { color: var(--txt); font-variant-numeric: tabular-nums; font-weight: 700; }
 .td-fastest-lap { color: var(--time-purple); font-weight: 700; }
@@ -219,6 +228,9 @@ th:nth-child(7), td:nth-child(7) { width: 110px; }  /* ÚLTIMA VOLTA */
 .ms-run      { background: #4a4a5a; }
 
 .td-mini { padding: 7px 8px; }
+/* larguras das colunas vêm do <colgroup> na TimingTable (mecanismo canônico do
+   table-layout:fixed). A coluna de mini-setores (360px) comporta os 3 grupos. */
+.td-mini .mini-bar { flex-wrap: nowrap; }
 .sector-time { display: inline-block; width: 52px; font-variant-numeric: tabular-nums;
                font-size: 0.72rem; font-weight: 700; color: var(--txt-mute); margin-left: 4px; text-align: left; }
 .sector-time.st-purple { color: var(--time-purple); }
@@ -348,8 +360,27 @@ th:nth-child(7), td:nth-child(7) { width: 110px; }  /* ÚLTIMA VOLTA */
             font-variant-numeric: tabular-nums; }
 .rank-bar { width: 4px; height: 20px; border-radius: 1px; }
 .rank-code { font-weight: 900; font-size: 0.95rem; letter-spacing: 0.05em; width: 48px; }
+.rank-grid { font-size: 0.72rem; color: var(--txt-mute); font-weight: 700; width: 34px;
+             text-align: center; font-variant-numeric: tabular-nums; }
+.rank-delta { font-size: 0.72rem; font-weight: 800; width: 34px; text-align: center;
+              font-variant-numeric: tabular-nums; }
+.rank-delta.gain { color: #24d15e; }
+.rank-delta.loss { color: #e1483a; }
+.rank-delta.even { color: var(--txt-mute); }
 .rank-gap { margin-left: auto; font-size: 0.75rem; color: var(--txt-mute); font-weight: 700;
             font-variant-numeric: tabular-nums; text-transform: uppercase; }
 .rank-best { font-size: 0.75rem; color: var(--txt-dim); font-variant-numeric: tabular-nums;
              min-width: 78px; text-align: right; }
 .rank-best.fl { color: var(--time-purple); font-weight: 700; }
+/* cabeçalho de colunas do modal de ranking */
+.ranking-cols {
+  display: flex; align-items: center; gap: 10px; padding: 6px 12px;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em; color: var(--txt-mute);
+  text-transform: uppercase; border-bottom: 1px solid var(--f1-line);
+}
+.ranking-cols .rc-pos { width: 24px; text-align: center; }
+.ranking-cols .rc-driver { width: 52px; }        /* barra(4)+gap+code(48) aprox */
+.ranking-cols .rc-grid { width: 34px; text-align: center; }
+.ranking-cols .rc-delta { width: 34px; text-align: center; }
+.ranking-cols .rc-gap { margin-left: auto; }
+.ranking-cols .rc-best { min-width: 78px; text-align: right; }

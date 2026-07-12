@@ -5,7 +5,8 @@ import type { RaceResult } from '../engine/types';
 // Puro e testável — a data vem de fora (não usar Date.now aqui).
 
 export interface ResultRow {
-  pos: number;                 // 1..N
+  pos: number;                 // 1..N (posição final)
+  startPos: number;            // 1..N (posição de largada / grid)
   code: string;
   gapToLeader: number;         // s (0 para o vencedor)
   bestLapTime: number | null;  // melhor volta do piloto
@@ -29,8 +30,13 @@ export function buildRaceRecord(
   dateISO: string,
   seed?: number,
 ): Omit<RaceRecord, 'id'> {
+  // Posição de largada: timelines está em ordem de grid (índice+1 = grid).
+  const startByCode: Record<string, number> = {};
+  result.timelines.forEach((t, i) => { startByCode[t.code] = i + 1; });
+
   const classification: ResultRow[] = result.finalState.map((d, i) => ({
     pos: i + 1,
+    startPos: startByCode[d.code] ?? i + 1,
     code: d.code,
     gapToLeader: d.gapToLeader,
     bestLapTime: d.bestLapTime,

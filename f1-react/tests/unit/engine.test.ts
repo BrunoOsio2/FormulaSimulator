@@ -281,8 +281,10 @@ describe('runRace — seed (I1)', () => {
         if (interval >= 0 && interval < MIN_GAP * 1.5) stuck++;
       }
     }
-    // pelo menos 20% dos pares colados = tráfego presente (medido ~57%)
-    expect(stuck / total).toBeGreaterThan(0.2);
+    // Tráfego ainda ocorre, mas com C1 (ultrapassagem) e C6 (momentum) os
+    // trenzinhos se quebram — menos pares colados que no C2 puro. >8% confirma
+    // que o efeito de tráfego segue presente sem exigir o congestionamento antigo.
+    expect(stuck / total).toBeGreaterThan(0.08);
   });
 });
 

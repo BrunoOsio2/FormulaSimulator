@@ -90,6 +90,7 @@ export interface SnapshotRow {
   gapToLeader: number;
   totalTime: number;
   finished: boolean;
+  momentum: number;   // forma vigente (C6): -2..+2 (↓↓..↑↑)
 }
 
 export type Snapshot = SnapshotRow[];

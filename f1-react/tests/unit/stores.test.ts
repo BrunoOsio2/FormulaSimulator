@@ -18,6 +18,17 @@ describe('buildRaceRecord', () => {
     expect(rec.classification[0].gapToLeader).toBe(0); // vencedor
   });
 
+  it('startPos: cada piloto tem posição de largada válida (1..N) e única', () => {
+    const starts = rec.classification.map(r => r.startPos);
+    starts.forEach(s => { expect(s).toBeGreaterThanOrEqual(1); expect(s).toBeLessThanOrEqual(22); });
+    expect(new Set(starts).size).toBe(22);                 // sem duplicatas → grid completo
+    // o grid = ordem das timelines (índice+1)
+    r.timelines.forEach((t, i) => {
+      const row = rec.classification.find(c => c.code === t.code)!;
+      expect(row.startPos).toBe(i + 1);
+    });
+  });
+
   it('metadados corretos (track, date, seed)', () => {
     expect(rec.trackKey).toBe('interlagos');
     expect(rec.trackName).toBe(r.track.name);

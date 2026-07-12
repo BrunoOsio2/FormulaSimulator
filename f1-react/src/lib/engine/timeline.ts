@@ -1,6 +1,8 @@
 import type { Track, TimelineEvent } from './types';
 import { RNG } from './rng';
 import { MINI_PER_SECTOR, accuracyWindow, miniSectorModifier } from './skills';
+import { miniMistakeLoss } from './mistakes';
+import { momentumAtLap, mistakeMultiplier, paceDeltaPerMini, type MomentumLevel } from './momentum';
 
 // ─── Timeline por piloto ───────────────────────────────────────────────────────
 // Pré-computa todos os eventos de conclusão de mini-setor de um piloto na corrida
@@ -8,7 +10,13 @@ import { MINI_PER_SECTOR, accuracyWindow, miniSectorModifier } from './skills';
 // mini-setor foi completado.
 //   startOffset — instante de largada (s): P1 larga em 0, cada posição de grid
 //   um pouco atrás. Só desloca o tempo absoluto; não conta como tempo de volta.
-export function computeTimeline(code: string, baseMini: number[], track: Track, seed: number, startOffset = 0): TimelineEvent[] {
+//   mistakeRng — RNG opcional para erros de pilotagem (C5). Se ausente, sem erros
+//   (mantém a paridade com o motor antigo, que não os tinha).
+//   momentum — série de forma por fase (C6). Se ausente, sem efeito de momentum.
+export function computeTimeline(
+  code: string, baseMini: number[], track: Track, seed: number,
+  startOffset = 0, mistakeRng?: RNG, momentum?: MomentumLevel[],
+): TimelineEvent[] {
   const rng        = new RNG(seed);
   const TOTAL_LAPS = track.laps;
   const events: TimelineEvent[] = [];
@@ -19,6 +27,10 @@ export function computeTimeline(code: string, baseMini: number[], track: Track, 
   for (let lap = 0; lap < TOTAL_LAPS; lap++) {
     const lapSectorTimes: (number | null)[] = [null, null, null];
     const lapMiniTimes: number[][] = [[], [], []];
+    // momentum vigente nesta volta: ajusta ritmo e chance de erro (C6)
+    const level = momentum ? momentumAtLap(momentum, lap) : 0;
+    const paceDelta = momentum ? paceDeltaPerMini(level) : 0;
+    const mistMul = momentum ? mistakeMultiplier(level) : 1;
 
     for (let sector = 0; sector < 3; sector++) {
       let sectorTime = 0;
@@ -29,7 +41,10 @@ export function computeTimeline(code: string, baseMini: number[], track: Track, 
         const window    = accuracyWindow(code, track.variation / MINI_PER_SECTOR);
         const variation = rng.range(-window, window);
         const skill     = miniSectorModifier(code, type, track);
-        const miniTime  = baseMini[sector] * (1 + variation) * skill;
+        // erro de pilotagem (C5), modulado por control e por momentum (C6).
+        const mistake   = mistakeRng ? miniMistakeLoss(code, track, mistakeRng, mistMul) : 0;
+        // ritmo base + variação + skill + erro + ajuste de momentum (± por volta).
+        const miniTime  = baseMini[sector] * (1 + variation) * skill + mistake + paceDelta;
 
         sectorTime += miniTime;
         lapElapsed += miniTime;

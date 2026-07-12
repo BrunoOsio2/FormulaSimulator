@@ -78,7 +78,17 @@ Probabilidade de erro/falha por tick, modulada por `control` do piloto e
 ### C5. Erros de pilotagem (mistake ticks)
 Um setor onde o piloto perde 0.3–1.5s por erro, com probabilidade inversa a `control`.
 Já está **documentado como intenção** em `f1-poc/docs/drivers.md` mas nunca implementado.
-- Dados existentes: ✅ `control` · Complexidade: **baixa/média**.
+- Dados existentes: ✅ `control` · Complexidade: **baixa/média**. **✅ IMPLEMENTADO** (`mistakes.ts`).
+
+### C6. Momentum / forma (setas estilo Winning Eleven)
+A cada X voltas, recalcula a "forma" de cada piloto: uma seta ↑/→/↓ que ajusta o
+ritmo geral (±~2 décimos/volta) e a chance de erro naquela fase. Ligado ao
+`handicap`: pilotos com handicap alto têm forma mais volátil e com viés negativo
+(mais chance de fase ruim). Cria a sensação de um piloto "embalado" ou "apagado"
+que se vê nascer e passar durante a corrida.
+- Dados existentes: ✅ `handicap`, `control` · Complexidade: **média**.
+- UI: seta de momentum na tabela de timing (↑ verde / → neutro / ↓ vermelho).
+- **✅ IMPLEMENTADO** (`momentum.ts`).
 
 ---
 

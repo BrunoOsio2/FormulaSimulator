@@ -165,16 +165,22 @@ export default function App() {
         </div>
       )}
 
-      {showRanking && result && (
-        <RaceRanking
-          trackName={result.track.name}
-          classification={result.finalState.map((d, i) => ({
-            pos: i + 1, code: d.code, gapToLeader: d.gapToLeader, bestLapTime: d.bestLapTime,
-          }))}
-          fastestLap={summary ? summary.fl : null}
-          onClose={closeRanking}
-        />
-      )}
+      {showRanking && result && (() => {
+        // posição de largada: timelines está em ordem de grid (índice+1)
+        const startByCode: Record<string, number> = {};
+        result.timelines.forEach((t, i) => { startByCode[t.code] = i + 1; });
+        return (
+          <RaceRanking
+            trackName={result.track.name}
+            classification={result.finalState.map((d, i) => ({
+              pos: i + 1, startPos: startByCode[d.code] ?? i + 1,
+              code: d.code, gapToLeader: d.gapToLeader, bestLapTime: d.bestLapTime,
+            }))}
+            fastestLap={summary ? summary.fl : null}
+            onClose={closeRanking}
+          />
+        );
+      })()}
 
       {result && (
         <div className="track-wrap" ref={trackWrapRef}>
