@@ -2,6 +2,7 @@ import { useEffect, useRef, type MouseEvent } from 'react';
 import type { RaceResult, TrackPath } from '../lib/engine/types';
 import { pointAtLapFraction, buildTrackPathFromSVG } from '../lib/map/geometry';
 import { DRIVER_COLOR, DRIVER_FLAG } from '../lib/data/drivers';
+import { fmtGap } from '../lib/engine/format';
 import {
   buildSpeedWarp, warpLapFraction, driverLapFraction, computeMapTransform, type SpeedWarp,
 } from '../lib/map/mapgraph';
@@ -35,6 +36,13 @@ export function TrackMap({ result, snapIdx, playing, speedMs, selected, onSelect
   const lastMs = useRef(0);
   const playingRef = useRef(playing);
   const snapRef = useRef(snapIdx);
+  // Câmera do zoom: estado atual (animado) vs alvo. camX/camY = ponto do mundo
+  // (pixel do mapa em zoom 1×) que fica no centro; camZoom = fator de ampliação.
+  const camZoom = useRef(1);
+  const camX = useRef(0);
+  const camY = useRef(0);
+  // transform efetivo do último frame, para o clique inverter corretamente.
+  const camApplied = useRef({ zoom: 1, cx: 0, cy: 0 });
 
   // Constrói traçado + warp uma vez por corrida (quando o result muda).
   useEffect(() => {
@@ -85,13 +93,13 @@ export function TrackMap({ result, snapIdx, playing, speedMs, selected, onSelect
       } else {
         dispT.current += (targetT.current - dispT.current) * Math.min(1, dt * 8);
       }
-      draw(dispT.current);
+      draw(dispT.current, dt);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf); // cleanup — sem leak ao desmontar
 
-    function draw(T: number) {
+    function draw(T: number, dt: number) {
       const path = pathRef.current;
       if (!canvas || !path) return;
       const ctx = canvas.getContext('2d');
@@ -100,6 +108,34 @@ export function TrackMap({ result, snapIdx, playing, speedMs, selected, onSelect
       ctx.clearRect(0, 0, W, H);
       const { mapX, mapY } = computeMapTransform(canvas, path);
       const pts = path.points;
+
+      // ── Câmera / zoom ──────────────────────────────────────────────────────
+      // Alvo: se há piloto selecionado, amplia e centra nele; senão volta ao
+      // overview (zoom 1, centro do canvas). Interpola suave a cada frame.
+      const selCam = selectedRef.current;
+      const ZOOM_IN = 2.4;
+      let targetZoom = 1, targetCx = W / 2, targetCy = H / 2;
+      if (selCam) {
+        const t = result.timelines.find(tl => tl.code === selCam);
+        if (t) {
+          const frac = driverLapFraction(t.events, T);
+          const p = pointAtLapFraction(path, warpLapFraction(warpRef.current, frac) + (result.track.startFrac ?? 0));
+          targetZoom = ZOOM_IN; targetCx = mapX(p); targetCy = mapY(p);
+        }
+      }
+      // suavização exponencial (segue a câmera sem tranco)
+      const kCam = Math.min(1, dt * 6);
+      camZoom.current += (targetZoom - camZoom.current) * kCam;
+      camX.current += (targetCx - camX.current) * kCam;
+      camY.current += (targetCy - camY.current) * kCam;
+      const camZ = camZoom.current, camCX = camX.current, camCY = camY.current;
+      camApplied.current = { zoom: camZ, cx: camCX, cy: camCY };
+
+      ctx.save();
+      // translada o ponto-alvo para o centro do canvas e amplia em torno dele
+      ctx.translate(W / 2, H / 2);
+      ctx.scale(camZ, camZ);
+      ctx.translate(-camCX, -camCY);
 
       const tracePath = () => {
         ctx.beginPath();
@@ -168,13 +204,17 @@ export function TrackMap({ result, snapIdx, playing, speedMs, selected, onSelect
         return { code: t.code, pos: orderByCode[t.code] ?? 99, p };
       }).sort((a, b) => b.pos - a.pos);
 
-      // registra posições em pixel para o clique achar o carro mais próximo
+      // registra posições em pixel (ESPAÇO DE TELA) para o clique achar o carro.
+      // Como o desenho está sob o transform da câmera, converte world→tela:
+      //   tela = (world - centroCam) * zoom + centroCanvas
       const pixels: { code: string; x: number; y: number }[] = [];
       const sel = selectedRef.current;
+      const toScreenX = (wx: number) => (wx - camCX) * camZ + W / 2;
+      const toScreenY = (wy: number) => (wy - camCY) * camZ + H / 2;
 
       for (const d of drawList) {
         const x = mapX(d.p), y = mapY(d.p);
-        pixels.push({ code: d.code, x, y });
+        pixels.push({ code: d.code, x: toScreenX(x), y: toScreenY(y) });
         const color = DRIVER_COLOR[d.code] || '#94a3b8';
         const isSel = d.code === sel;
         const r = isSel ? 15 : 13;   // ~33% maior que a largura do traçado (atravessa)
@@ -200,6 +240,7 @@ export function TrackMap({ result, snapIdx, playing, speedMs, selected, onSelect
       carPixels.current = pixels;
       // hook de teste: posições em pixel dos carros no último frame
       (window as unknown as { __cars?: typeof pixels }).__cars = pixels;
+      ctx.restore();   // encerra o transform da câmera
     }
   }, [result]);
 
@@ -225,16 +266,36 @@ export function TrackMap({ result, snapIdx, playing, speedMs, selected, onSelect
 
   if (!result.track.svgPath) return null;
 
-  const selRow = selected ? result.sectorSnapshots[snapIdx].find(r => r.code === selected) : null;
-  const selPos = selected ? result.sectorSnapshots[snapIdx].findIndex(r => r.code === selected) + 1 : 0;
+  const frameNow = result.sectorSnapshots[snapIdx];
+  const selIdx = selected ? frameNow.findIndex(r => r.code === selected) : -1;
+  const selRow = selIdx >= 0 ? frameNow[selIdx] : null;
+  const selPos = selIdx + 1;
+  // Gaps para o carro à frente e atrás (só fazem sentido com um selecionado).
+  // gapToLeader é acumulado; a diferença entre vizinhos = intervalo entre eles.
+  const ahead = selRow && selIdx > 0 ? frameNow[selIdx - 1] : null;
+  const behind = selRow && selIdx < frameNow.length - 1 ? frameNow[selIdx + 1] : null;
+  const gapAhead = ahead && selRow ? selRow.gapToLeader - ahead.gapToLeader : null;
+  const gapBehind = behind && selRow ? behind.gapToLeader - selRow.gapToLeader : null;
 
   return (
     <div className="track-map-card" style={{ position: 'relative' }}>
       {selRow && (
-        <div className="map-driver-label">
-          <span className="mdl-flag">{DRIVER_FLAG[selRow.code]}</span>
-          <span className="mdl-code" style={{ color: DRIVER_COLOR[selRow.code] }}>{selRow.code}</span>
-          <span className="mdl-pos">P{selPos}</span>
+        <div className="map-driver-label focused">
+          {ahead && (
+            <span className="mdl-neighbor ahead" title={`Carro à frente: ${ahead.code}`}>
+              ▲ {ahead.code} <b>{fmtGap(gapAhead)}</b>
+            </span>
+          )}
+          <span className="mdl-main">
+            <span className="mdl-flag">{DRIVER_FLAG[selRow.code]}</span>
+            <span className="mdl-code" style={{ color: DRIVER_COLOR[selRow.code] }}>{selRow.code}</span>
+            <span className="mdl-pos">P{selPos}</span>
+          </span>
+          {behind && (
+            <span className="mdl-neighbor behind" title={`Carro atrás: ${behind.code}`}>
+              ▼ {behind.code} <b>{fmtGap(gapBehind)}</b>
+            </span>
+          )}
         </div>
       )}
       <canvas ref={canvasRef} id="trackCanvas" width={1200} height={520}

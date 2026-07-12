@@ -288,6 +288,19 @@ th:nth-child(7), td:nth-child(7) { width: 110px; }  /* ÚLTIMA VOLTA */
 .map-driver-label .mdl-flag { font-size: 1.1rem; }
 .map-driver-label .mdl-code { font-size: 1rem; letter-spacing: 0.06em; text-transform: uppercase; }
 .map-driver-label .mdl-pos  { font-size: 0.78rem; color: var(--txt-mute); }
+/* bloco central do piloto em foco: nome maior, mais destaque */
+.map-driver-label .mdl-main { display: flex; align-items: center; gap: 8px; }
+.map-driver-label.focused .mdl-code { font-size: 1.5rem; letter-spacing: 0.05em; }
+.map-driver-label.focused .mdl-pos  { font-size: 0.95rem; font-weight: 900; color: var(--txt); }
+/* vizinhos (à frente / atrás) com gap ao piloto em foco */
+.map-driver-label .mdl-neighbor {
+  display: flex; align-items: center; gap: 5px; font-size: 0.72rem; font-weight: 700;
+  color: var(--txt-mute); text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 0 10px;
+}
+.map-driver-label .mdl-neighbor b { color: var(--txt); font-variant-numeric: tabular-nums; }
+.map-driver-label .mdl-neighbor.ahead  { border-right: 1px solid var(--f1-line); }
+.map-driver-label .mdl-neighbor.behind { border-left: 1px solid var(--f1-line); }
 
 /* ── Resumo da corrida (pódio + volta mais rápida) ── */
 .race-summary {
