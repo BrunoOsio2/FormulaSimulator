@@ -15,6 +15,7 @@ import { buildTrackPath, normalizePath, pointAtLapFraction } from '../../src/lib
 import {
   buildSpeedWarp, applyCornerOverrides, warpLapFraction, driverLapFraction, computeMapTransform,
 } from '../../src/lib/map/mapgraph';
+import { resolveTraffic, MIN_GAP } from '../../src/lib/engine/traffic';
 
 const TRACK_KEYS = ['monaco', 'spa', 'interlagos'];
 
@@ -46,6 +47,44 @@ describe('RNG', () => {
     const s = new Set<number>();
     for (let i = 0; i < 100; i++) { const v = deriveSeed(0, i); expect(v).not.toBe(0); s.add(v); }
     expect(s.size).toBeGreaterThan(90);                       // baixa colisão entre salts
+  });
+});
+
+describe('resolveTraffic (tráfego / dirty air — C2)', () => {
+  // P0 lento na frente, P1 rápido atrás (larga depois), P2 médio
+  const clean = [
+    [2, 2, 2, 2, 2],
+    [1, 1, 1, 1, 1],
+    [1.5, 1.5, 1.5, 1.5, 1.5],
+  ];
+  const starts = [0, 1.0, 2.0];
+
+  it('T-SPEC4: seguidor rápido fica preso ≥ MIN_GAP atrás e nunca passa', () => {
+    const r = resolveTraffic(clean, starts);
+    for (let m = 0; m < 5; m++) {
+      const gap = r[1][m] - r[0][m];           // P1 - P0 na mesma marca
+      expect(gap).toBeGreaterThanOrEqual(MIN_GAP - 1e-9); // preso atrás, nunca à frente
+    }
+  });
+  it('líder da pista anda livre (pace limpo, sem atraso)', () => {
+    const r = resolveTraffic(clean, starts);
+    expect(r[0]).toEqual([2, 4, 6, 8, 10]);    // P0 nunca tem ninguém à frente
+  });
+  it('só atrasa, nunca adianta (tFinal ≥ tempo limpo)', () => {
+    const r = resolveTraffic(clean, starts);
+    for (let p = 0; p < clean.length; p++) {
+      let cleanTime = starts[p];
+      for (let k = 0; k < clean[p].length; k++) {
+        cleanTime += clean[p][k];
+        expect(r[p][k]).toBeGreaterThanOrEqual(cleanTime - 1e-9);
+      }
+    }
+  });
+  it('determinística: mesmo input → mesmo output', () => {
+    expect(resolveTraffic(clean, starts)).toEqual(resolveTraffic(clean, starts));
+  });
+  it('sem tráfego (1 piloto) → tempos = pace limpo', () => {
+    expect(resolveTraffic([[1, 1, 1]], [0])).toEqual([[1, 2, 3]]);
   });
 });
 
@@ -227,6 +266,23 @@ describe('runRace — seed (I1)', () => {
     expect(a.finalState.length).toBe(22);
     expect(a.finalState.every(d => d.lapsCompleted === a.track.laps)).toBe(true);
     expect(digest(a)).toEqual(digest(b));
+  });
+  it('tráfego observável: pares consecutivos formam trenzinho (~MIN_GAP)', () => {
+    // Numa pista de baixa ultrapassagem (Monaco), carros presos no tráfego ficam
+    // colados a ~MIN_GAP. Confirma que o efeito C2 acontece numa corrida real.
+    const r = runRace('monaco', 42);
+    const frames = r.sectorSnapshots;
+    const mid = frames.slice(Math.floor(frames.length * 0.3), Math.floor(frames.length * 0.7));
+    let stuck = 0, total = 0;
+    for (const f of mid) {
+      for (let i = 1; i < f.length; i++) {
+        const interval = f[i].gapToLeader - f[i - 1].gapToLeader; // intervalo entre consecutivos
+        total++;
+        if (interval >= 0 && interval < MIN_GAP * 1.5) stuck++;
+      }
+    }
+    // pelo menos 20% dos pares colados = tráfego presente (medido ~57%)
+    expect(stuck / total).toBeGreaterThan(0.2);
   });
 });
 

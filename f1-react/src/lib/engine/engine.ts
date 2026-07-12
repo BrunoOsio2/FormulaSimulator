@@ -3,14 +3,15 @@ import { TRACKS } from '../data/tracks';
 import { MINI_PER_SECTOR, buildDrivers } from './skills';
 import { computeTimeline } from './timeline';
 import { deriveSeed } from './rng';
+import { resolveTraffic } from './traffic';
 
 // ─── Motor da corrida ──────────────────────────────────────────────────────────
 // Estratégia:
-//   1. Pré-computa a timeline completa de cada piloto (seed aleatória por piloto).
-//   2. Processa todos os eventos em ordem cronológica (event-driven).
-//   3. Emite um frame de playback a cada avanço do piloto da frente; após o líder
-//      terminar, emite um frame por evento para os retardatários cruzarem a linha.
-//   4. A barra de mini-setores de cada piloto reflete o progresso da volta atual.
+//   1. Pré-computa a timeline LIMPA de cada piloto (pace sozinho; seed por piloto).
+//   2. Aplica o tráfego (resolveTraffic): carro rápido preso atrás de um lento não
+//      passa — reescreve os tempos absolutos dos eventos (C2).
+//   3. Processa os eventos em ordem cronológica (event-driven) → frames de playback.
+//   4. Emite um frame a cada avanço do líder; após ele terminar, um por evento.
 export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
   const track      = TRACKS[trackKey];
   const drivers    = buildDrivers(track);
@@ -22,11 +23,24 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
   const master = seed ?? Math.floor(Math.random() * 0xFFFFFFFF);
   // startOffset = i * gapPerPos: grid de largada — P1 (i=0) larga em 0, cada
   // posição atrás larga um pouco depois, criando gaps reais desde o começo.
+  const startOffsets = drivers.map((_, i) => i * track.gapPerPos);
   const timelines: Timeline[] = drivers.map((d, i) => ({
     code:   d.code,
     events: computeTimeline(d.code, d.baseMini, track,
-              deriveSeed(master, i), i * track.gapPerPos),
+              deriveSeed(master, i), startOffsets[i]),
   }));
+
+  // ── Tráfego (C2) ──────────────────────────────────────────────────────────
+  // As timelines acima são o pace LIMPO (cada carro sozinho). Aqui aplicamos o
+  // tráfego: um carro que alcança outro mais lento fica preso atrás (não passa).
+  // resolveTraffic devolve o tempo absoluto resolvido de cada mini; reescrevemos
+  // event.time. O event.miniTime (duração limpa) é PRESERVADO — usado para cores
+  // (que refletem o ritmo real do piloto, não o atraso por tráfego).
+  const clean = timelines.map(t => t.events.map(e => e.miniTime));
+  const resolved = resolveTraffic(clean, startOffsets);
+  timelines.forEach((t, p) => {
+    for (let k = 0; k < t.events.length; k++) t.events[k].time = resolved[p][k];
+  });
 
   // Estado de exibição por piloto
   const dstate = timelines.map(t => ({
