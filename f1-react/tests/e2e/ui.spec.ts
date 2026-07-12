@@ -43,6 +43,21 @@ test('gaps crescem monotonicamente na tabela', async ({ page }) => {
   expect(mono).toBe(true);
 });
 
+test('semáforo dispara e a corrida arranca sozinha (regressão dos timers de largada)', async ({ page }) => {
+  // Regressão: um objeto de retorno instável do hook cancelava os timers do
+  // semáforo antes de dispararem, e a corrida nunca começava. Este teste espera
+  // os timers REAIS (o outro fluxo avança por botão e não pegaria isso).
+  await page.selectOption('.controls select', 'interlagos');
+  await page.click('#btnRun');
+  // durante a contagem, o painel do semáforo fica visível
+  await expect(page.locator('.lights-overlay')).toBeVisible({ timeout: 3000 });
+  await expect(page.locator('.light-post.on')).toHaveCount(5, { timeout: 6000 });
+  // após "lights out", a corrida começa (botão vira "Pausar")
+  await expect(page.locator('#btnPlayPause')).toContainText('Pausar', { timeout: 4000 });
+  const errs = (page as unknown as { _errs: string[] })._errs;
+  expect(errs).toHaveLength(0);
+});
+
 test('todas as 3 pistas mostram o mapa 2D', async ({ page }) => {
   for (const track of ['interlagos', 'monaco', 'spa']) {
     await page.click('#btnReset').catch(() => {});

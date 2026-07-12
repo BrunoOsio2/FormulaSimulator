@@ -1,6 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import type { RaceResult } from './lib/engine/types';
-import { runRace } from './lib/engine/engine';
+import { useRef } from 'react';
 import { fmtTime, fmtGap } from './lib/engine/format';
 import { TRACKS } from './lib/data/tracks';
 import { DRIVER_COLOR } from './lib/data/drivers';
@@ -8,140 +6,54 @@ import { TrackPanel } from './components/TrackPanel';
 import { TimingTable } from './components/TimingTable';
 import { TrackMap } from './components/TrackMap';
 import { RaceRanking } from './components/RaceRanking';
-import { useSeasonStore } from './lib/stores/seasonStore';
-import { buildRaceRecord } from './lib/stores/raceRecord';
-
-const SPEEDS = [
-  { v: 600, label: 'Muito lento (0.6s/mini)' },
-  { v: 300, label: 'Lento (0.3s/mini)' },
-  { v: 150, label: 'Normal (0.15s/mini)' },
-  { v: 80,  label: 'Rápido (0.08s/mini)' },
-  { v: 30,  label: 'Muito rápido' },
-];
-// Ordenado do mais LENTO (maior ms) ao mais RÁPIDO (menor ms), para os botões +/-.
-const SPEED_VALUES = SPEEDS.map(s => s.v);       // [600, 300, 150, 80, 30]
+import { useRaceStore, SPEEDS, SPEED_VALUES } from './lib/stores/raceStore';
+import { usePlayback } from './hooks/usePlayback';
+import { useRaceStartLights } from './hooks/useRaceStartLights';
+import { useAutoSaveResult } from './hooks/useAutoSaveResult';
+import { useKeyboardControls } from './hooks/useKeyboardControls';
 
 export default function App() {
-  // Preferências persistidas (localStorage): pista e velocidade escolhidas.
-  const [trackKey, setTrackKey] = useState(() => localStorage.getItem('f1.track') || 'interlagos');
-  const [result, setResult] = useState<RaceResult | null>(null);
-  const [snapIdx, setSnapIdx] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [speedMs, setSpeedMs] = useState(() => Number(localStorage.getItem('f1.speed')) || 80);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [perf, setPerf] = useState<{ ms: number; ticks: number; ups: number; laps: string } | null>(null);
-  // Largada estilo F1 (semáforo): lights = nº de luzes vermelhas acesas (0..5),
-  // 'out' no instante em que tudo apaga (largada!), null quando não há corrida.
-  const [lights, setLights] = useState<number | 'out' | null>(null);
+  // Estado de domínio vem do raceStore; efeitos imperativos ficam em hooks.
+  const trackKey    = useRaceStore(s => s.trackKey);
+  const result      = useRaceStore(s => s.result);
+  const snapIdx     = useRaceStore(s => s.snapIdx);
+  const playing     = useRaceStore(s => s.playing);
+  const speedMs     = useRaceStore(s => s.speedMs);
+  const selected    = useRaceStore(s => s.selected);
+  const perf        = useRaceStore(s => s.perf);
+  const lights      = useRaceStore(s => s.lights);
+  const showRanking = useRaceStore(s => s.showRanking);
+
+  const setTrackKey  = useRaceStore(s => s.setTrackKey);
+  const run          = useRaceStore(s => s.run);
+  const reset        = useRaceStore(s => s.reset);
+  const stepNext     = useRaceStore(s => s.stepNext);
+  const stepPrev     = useRaceStore(s => s.stepPrev);
+  const togglePlay   = useRaceStore(s => s.togglePlay);
+  const setSpeed     = useRaceStore(s => s.setSpeed);
+  const stepFaster   = useRaceStore(s => s.stepFaster);
+  const stepSlower   = useRaceStore(s => s.stepSlower);
+  const setSelected  = useRaceStore(s => s.setSelected);
+  const openRanking  = useRaceStore(s => s.openRanking);
+  const closeRanking = useRaceStore(s => s.closeRanking);
+
   const trackWrapRef = useRef<HTMLDivElement>(null);   // âncora p/ scroll suave até a pista
-  const countdownTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  // Temporada: salvar resultado ao terminar + modal de classificação completa.
-  const addResult = useSeasonStore(s => s.addResult);
-  const [showRanking, setShowRanking] = useState(false);
-  const raceSeed = useRef<number>(0);          // seed da corrida atual (p/ salvar)
-  const savedFor = useRef<RaceResult | null>(null); // guard: salva 1x por corrida
+  const startLights = useRaceStartLights();            // sequência do semáforo (imperativo)
 
-  useEffect(() => { localStorage.setItem('f1.track', trackKey); }, [trackKey]);
-  useEffect(() => { localStorage.setItem('f1.speed', String(speedMs)); }, [speedMs]);
+  usePlayback();                                       // avança snapIdx enquanto playing
+  useAutoSaveResult();                                 // salva o resultado ao terminar
+  useKeyboardControls();                               // espaço/setas
 
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const total = result ? result.sectorSnapshots.length : 0;
 
-  const stopTimer = useCallback(() => {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-  }, []);
-
-  // Playback: avança snapIdx a cada speedMs enquanto playing.
-  useEffect(() => {
-    if (!playing || !result) { stopTimer(); return; }
-    timerRef.current = setInterval(() => {
-      setSnapIdx(i => {
-        if (i < result.sectorSnapshots.length - 1) return i + 1;
-        setPlaying(false);
-        return i;
-      });
-    }, speedMs);
-    return stopTimer;
-  }, [playing, result, speedMs, stopTimer]);
-
   const handleRun = () => {
-    const seed = Math.floor(Math.random() * 0xFFFFFFFF); // seed reproduzível (I1)
-    raceSeed.current = seed;
-    savedFor.current = null;                             // nova corrida → pode salvar de novo
-    const t0 = performance.now();
-    const r = runRace(trackKey, seed);
-    const ms = performance.now() - t0;
-    const ticks = r.track.laps * 3 * 9;
-    setResult(r);
-    setSnapIdx(0);
-    setPlaying(false);     // fica parado no grid até a contagem terminar
-    setPerf({
-      ms, ticks, ups: Math.round(ticks / (ms / 1000)),
-      laps: `${r.track.laps} voltas · ${r.sectorSnapshots.length} setores`,
-    });
-
-    // "Arrasta a âncora": rola suavemente até a pista, para a largada ficar em foco.
-    requestAnimationFrame(() =>
+    run();                                             // gera a corrida (store)
+    requestAnimationFrame(() =>                        // "arrasta a âncora" até a pista
       trackWrapRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
-
-    // Largada estilo F1 (semáforo): 5 luzes vermelhas acendem uma a uma (~1s
-    // cada), seguram um instante, e então TODAS apagam de uma vez → corrida
-    // começa (o clássico "lights out and away we go").
-    countdownTimers.current.forEach(clearTimeout);
-    countdownTimers.current = [];
-    for (let n = 1; n <= 5; n++) {
-      countdownTimers.current.push(setTimeout(() => setLights(n), n * 900));
-    }
-    // segura as 5 luzes acesas por ~1.1s, depois apaga tudo e larga
-    const outAt = 5 * 900 + 1100;
-    countdownTimers.current.push(setTimeout(() => setLights('out'), outAt));
-    countdownTimers.current.push(setTimeout(() => {
-      setLights(null);
-      setPlaying(true);
-    }, outAt + 600));
+    startLights.start();                               // 5 luzes → largada → playing
   };
 
-  // Botões +/-: passa para a velocidade adjacente na lista (lenta → rápida).
-  const idxSpeed = SPEED_VALUES.indexOf(speedMs);
-  const canFaster = idxSpeed < SPEED_VALUES.length - 1 && idxSpeed !== -1;
-  const canSlower = idxSpeed > 0;
-  const stepFaster = () => { if (canFaster) setSpeedMs(SPEED_VALUES[idxSpeed + 1]); };
-  const stepSlower = () => { if (canSlower) setSpeedMs(SPEED_VALUES[idxSpeed - 1]); };
-
-  const handleReset = () => {
-    stopTimer();
-    countdownTimers.current.forEach(clearTimeout);
-    countdownTimers.current = [];
-    setLights(null);
-    setResult(null);
-    setSnapIdx(0);
-    setPlaying(false);
-    setPerf(null);
-    setSelected(null);
-    setShowRanking(false);
-  };
-
-  // Cancela timers da contagem ao desmontar (sem vazamento).
-  useEffect(() => () => { countdownTimers.current.forEach(clearTimeout); }, []);
-
-  // Atalhos de teclado: espaço = play/pause, ← → = passo a passo (pausa antes).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!result) return;
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
-      if (e.code === 'Space') {
-        e.preventDefault();
-        setPlaying(p => { if (!p && snapIdx >= total - 1) setSnapIdx(0); return !p; });
-      } else if (e.code === 'ArrowLeft') {
-        e.preventDefault(); setPlaying(false); setSnapIdx(i => Math.max(0, i - 1));
-      } else if (e.code === 'ArrowRight') {
-        e.preventDefault(); setPlaying(false); setSnapIdx(i => Math.min(total - 1, i + 1));
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [result, snapIdx, total]);
+  const handleReset = () => { startLights.cancel(); reset(); };
 
   const frame = result ? result.sectorSnapshots[snapIdx] : null;
   const leader = frame ? frame[0] : null;
@@ -150,6 +62,10 @@ export default function App() {
   const minisDone = leader ? leader.curMiniTimesPerSector.reduce((a, arr) => a + arr.length, 0) : 0;
   const pct = total ? ((snapIdx + 1) / total) * 100 : 0;
   const perfClass = perf ? (perf.ms < 50 ? 'good' : perf.ms < 200 ? 'warn' : '') : '';
+
+  const idxSpeed = SPEED_VALUES.indexOf(speedMs);
+  const canFaster = idxSpeed < SPEED_VALUES.length - 1 && idxSpeed !== -1;
+  const canSlower = idxSpeed > 0;
 
   // Resumo da corrida: aparece quando o playback chega ao último frame.
   const atEnd = !!result && snapIdx >= total - 1;
@@ -162,14 +78,6 @@ export default function App() {
     }
     summary = { podium, fl };
   }
-
-  // Salva o resultado na temporada quando a corrida termina — uma vez por corrida
-  // (guard savedFor evita re-salvar a cada re-render enquanto atEnd continua true).
-  useEffect(() => {
-    if (!result || !atEnd || savedFor.current === result) return;
-    savedFor.current = result;
-    addResult(buildRaceRecord(result, trackKey, new Date().toISOString(), raceSeed.current));
-  }, [result, atEnd, trackKey, addResult]);
 
   return (
     <>
@@ -217,20 +125,15 @@ export default function App() {
 
       {result && (
         <div className="lap-nav" style={{ display: 'flex' }}>
-          <button id="btnPlayPause" onClick={() => setPlaying(p => {
-            if (!p && snapIdx >= total - 1) setSnapIdx(0);
-            return !p;
-          })}>{playing ? '⏸ Pausar' : '▶ Play'}</button>
-          <button id="btnLapPrev" disabled={snapIdx === 0}
-                  onClick={() => { setPlaying(false); setSnapIdx(i => Math.max(0, i - 1)); }}>◀</button>
+          <button id="btnPlayPause" onClick={togglePlay}>{playing ? '⏸ Pausar' : '▶ Play'}</button>
+          <button id="btnLapPrev" disabled={snapIdx === 0} onClick={stepPrev}>◀</button>
           <span className="lap-label">{`Volta ${lapNum} · S${sectorNum} · ${minisDone}/27 mini`}</span>
-          <button id="btnLapNext" disabled={snapIdx >= total - 1}
-                  onClick={() => { setPlaying(false); setSnapIdx(i => Math.min(total - 1, i + 1)); }}>▶</button>
+          <button id="btnLapNext" disabled={snapIdx >= total - 1} onClick={stepNext}>▶</button>
           <div className="speed-ctl">
             <button id="btnSlower" className="speed-step" disabled={!canSlower}
                     title="Mais devagar" onClick={stepSlower}>🐢 −</button>
             <select id="speedSelect" value={speedMs}
-                    onChange={e => setSpeedMs(parseInt(e.target.value))}>
+                    onChange={e => setSpeed(parseInt(e.target.value))}>
               {SPEEDS.map(s => <option key={s.v} value={s.v}>{s.label}</option>)}
             </select>
             <button id="btnFaster" className="speed-step" disabled={!canFaster}
@@ -256,7 +159,7 @@ export default function App() {
             <span className="rs-fl-code">{summary.fl.code}</span>
             <span className="rs-fl-time">{fmtTime(summary.fl.time)}</span>
           </div>
-          <button className="rank-btn" id="btnRanking" onClick={() => setShowRanking(true)}>
+          <button className="rank-btn" id="btnRanking" onClick={openRanking}>
             📋 Ver classificação completa
           </button>
         </div>
@@ -269,7 +172,7 @@ export default function App() {
             pos: i + 1, code: d.code, gapToLeader: d.gapToLeader, bestLapTime: d.bestLapTime,
           }))}
           fastestLap={summary ? summary.fl : null}
-          onClose={() => setShowRanking(false)}
+          onClose={closeRanking}
         />
       )}
 
