@@ -6,6 +6,7 @@ import { RNG, deriveSeed } from './rng';
 import { resolveTraffic } from './traffic';
 import { overtakeChance, resolvePass } from './overtake';
 import { buildMomentumSeries, momentumAtLap } from './momentum';
+import { planIncidents, neutralizations, applyNeutralizations } from './incidents';
 
 // ─── Motor da corrida ──────────────────────────────────────────────────────────
 // Estratégia:
@@ -57,6 +58,18 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
     for (let k = 0; k < t.events.length; k++) t.events[k].time = resolved[p][k];
   });
 
+  // ── Incidentes + Safety Car (C4) ──────────────────────────────────────────
+  // Sorteia a agenda de incidentes (RNG dedicado) e neutraliza o pelotão nas
+  // janelas de VSC/SC: desacelera todos e, no SC, agrupa atrás do carro de
+  // segurança. Reescreve os tempos; o miniTime limpo é preservado (cores).
+  const incidents = planIncidents(track, TOTAL_LAPS, new RNG(deriveSeed(master, 0x5AFEC)));
+  const neuts = neutralizations(incidents);
+  applyNeutralizations(timelines, neuts, track.baseLap);
+  const cautionAtLap = (lap: number): 'none' | 'vsc' | 'sc' => {
+    for (const z of neuts) if (lap >= z.startLap && lap < z.endLap) return z.type;
+    return 'none';
+  };
+
   // Estado de exibição por piloto
   const dstate = timelines.map(t => ({
     code:                 t.code,
@@ -77,9 +90,17 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
   const ptrs = new Array(timelines.length).fill(0);
   const sectorSnapshots: Snapshot[] = [];
   const lapSnapshots: Snapshot[] = [];
+  const cautionByFrame: ('none' | 'vsc' | 'sc')[] = [];
   const TOTAL_MINIS = TOTAL_LAPS * 3 * MINI_PER_SECTOR;
   let framesEmitted = 0;
   let leaderDone = false;
+
+  // caution do frame = estado de neutralização na volta do líder (maior lap do frame)
+  const cautionOf = (frame: Snapshot): 'none' | 'vsc' | 'sc' => {
+    let lap = 0;
+    for (const r of frame) if (r.lap > lap) lap = r.lap;
+    return cautionAtLap(lap);
+  };
 
   const buildFrame = (): Snapshot => {
     let ref = dstate[0];
@@ -164,10 +185,13 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
       framesEmitted = ds.miniCompleted;
       const frame = buildFrame();
       sectorSnapshots.push(frame);
+      cautionByFrame.push(cautionOf(frame));
       if (ev.isLapEnd) lapSnapshots.push(frame);
       if (ds.miniCompleted >= TOTAL_MINIS) leaderDone = true;
     } else if (leaderDone) {
-      sectorSnapshots.push(buildFrame());
+      const frame = buildFrame();
+      sectorSnapshots.push(frame);
+      cautionByFrame.push(cautionOf(frame));
     }
   }
 
@@ -245,5 +269,5 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
     sectorColors[`${c.code}|${c.lap}|${c.sector}`] = cls;
   }
 
-  return { finalState, sectorSnapshots, lapSnapshots, track, miniRef, personalBest, sectorRef, sectorPB, sectorColors, timelines };
+  return { finalState, sectorSnapshots, lapSnapshots, track, miniRef, personalBest, sectorRef, sectorPB, sectorColors, timelines, neutralizations: neuts, cautionByFrame };
 }

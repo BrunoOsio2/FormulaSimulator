@@ -43,6 +43,11 @@ export function TrackMap({ result, snapIdx, playing, speedMs, selected, onSelect
   const camY = useRef(0);
   // transform efetivo do último frame, para o clique inverter corretamente.
   const camApplied = useRef({ zoom: 1, cx: 0, cy: 0 });
+  // estado de bandeira (VSC/SC) do frame atual, lido pelo loop de desenho.
+  const cautionRef = useRef<'none' | 'vsc' | 'sc'>('none');
+  useEffect(() => {
+    cautionRef.current = result.cautionByFrame[snapIdx] ?? 'none';
+  }, [result, snapIdx]);
 
   // Constrói traçado + warp uma vez por corrida (quando o result muda).
   useEffect(() => {
@@ -212,6 +217,26 @@ export function TrackMap({ result, snapIdx, playing, speedMs, selected, onSelect
       const toScreenX = (wx: number) => (wx - camCX) * camZ + W / 2;
       const toScreenY = (wy: number) => (wy - camCY) * camZ + H / 2;
 
+      // Safety car (C4): sob SC, desenha o carro de segurança logo À FRENTE do
+      // líder no traçado (fração do líder + pequeno offset), com faixas amarelas.
+      if (cautionRef.current === 'sc') {
+        const leader = result.timelines.find(t => (orderByCode[t.code] ?? 99) === 0);
+        if (leader) {
+          const lf = warpLapFraction(warpRef.current, driverLapFraction(leader.events, T));
+          const scP = pointAtLapFraction(path, lf + sf + 0.012); // um pouco à frente
+          const sx = mapX(scP), sy = mapY(scP);
+          ctx.save();
+          ctx.beginPath(); ctx.arc(sx, sy, 14, 0, Math.PI * 2);
+          ctx.fillStyle = '#f5c518'; ctx.fill();            // amarelo SC
+          ctx.lineWidth = 2; ctx.strokeStyle = '#0a0a0f'; ctx.stroke();
+          ctx.fillStyle = '#0a0a0f'; ctx.font = '700 10px "Titillium Web", monospace';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('SC', sx, sy);
+          ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+          ctx.restore();
+        }
+      }
+
       for (const d of drawList) {
         const x = mapX(d.p), y = mapY(d.p);
         pixels.push({ code: d.code, x: toScreenX(x), y: toScreenY(y) });
@@ -277,8 +302,15 @@ export function TrackMap({ result, snapIdx, playing, speedMs, selected, onSelect
   const gapAhead = ahead && selRow ? selRow.gapToLeader - ahead.gapToLeader : null;
   const gapBehind = behind && selRow ? behind.gapToLeader - selRow.gapToLeader : null;
 
+  const caution = result.cautionByFrame[snapIdx] ?? 'none';
+
   return (
     <div className="track-map-card" style={{ position: 'relative' }}>
+      {caution !== 'none' && (
+        <div className={`caution-banner ${caution}`}>
+          🟡 {caution === 'sc' ? 'SAFETY CAR' : 'VIRTUAL SAFETY CAR'}
+        </div>
+      )}
       {selRow && (
         <div className="map-driver-label focused">
           {ahead && (

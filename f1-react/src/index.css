@@ -240,6 +240,19 @@ th:nth-child(7), td:nth-child(7) { width: 110px; }  /* ÚLTIMA VOLTA */
 /* ── Track map ── */
 .track-map-card { background: var(--f1-carbon); border: 1px solid var(--f1-line); border-radius: var(--radius); padding: 12px; margin-bottom: 16px; }
 
+/* ── Banner de neutralização (VSC / Safety Car — C4) ── */
+.caution-banner {
+  position: absolute; top: 20px; right: 20px; z-index: 3; pointer-events: none;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(245, 197, 24, 0.16); border: 1px solid var(--sector-1);
+  color: var(--sector-1); font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase;
+  font-size: 0.82rem; padding: 7px 14px; border-radius: var(--radius);
+  animation: caution-pulse 1.1s ease-in-out infinite;
+}
+.caution-banner.sc { font-size: 0.92rem; }
+@keyframes caution-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .caution-banner { animation: none; } }
+
 /* ── Largada: semáforo da F1 sobre o mapa ── */
 .track-wrap { position: relative; }
 .lights-overlay {

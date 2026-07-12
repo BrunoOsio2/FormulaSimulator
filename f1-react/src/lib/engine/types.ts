@@ -116,6 +116,9 @@ export interface RaceResult {
   sectorPB: Record<DriverCode, number[]>;
   sectorColors: Record<string, string>;
   timelines: Timeline[];
+  // C4: janelas de neutralização (VSC/SC) e o estado de bandeira por frame.
+  neutralizations: { startLap: number; endLap: number; type: 'vsc' | 'sc' }[];
+  cautionByFrame: ('none' | 'vsc' | 'sc')[];
 }
 
 // Traçado geométrico normalizado.
