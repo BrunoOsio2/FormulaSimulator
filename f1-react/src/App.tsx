@@ -7,6 +7,9 @@ import { DRIVER_COLOR } from './lib/data/drivers';
 import { TrackPanel } from './components/TrackPanel';
 import { TimingTable } from './components/TimingTable';
 import { TrackMap } from './components/TrackMap';
+import { RaceRanking } from './components/RaceRanking';
+import { useSeasonStore } from './lib/stores/seasonStore';
+import { buildRaceRecord } from './lib/stores/raceRecord';
 
 const SPEEDS = [
   { v: 600, label: 'Muito lento (0.6s/mini)' },
@@ -32,6 +35,11 @@ export default function App() {
   const [lights, setLights] = useState<number | 'out' | null>(null);
   const trackWrapRef = useRef<HTMLDivElement>(null);   // âncora p/ scroll suave até a pista
   const countdownTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Temporada: salvar resultado ao terminar + modal de classificação completa.
+  const addResult = useSeasonStore(s => s.addResult);
+  const [showRanking, setShowRanking] = useState(false);
+  const raceSeed = useRef<number>(0);          // seed da corrida atual (p/ salvar)
+  const savedFor = useRef<RaceResult | null>(null); // guard: salva 1x por corrida
 
   useEffect(() => { localStorage.setItem('f1.track', trackKey); }, [trackKey]);
   useEffect(() => { localStorage.setItem('f1.speed', String(speedMs)); }, [speedMs]);
@@ -57,8 +65,11 @@ export default function App() {
   }, [playing, result, speedMs, stopTimer]);
 
   const handleRun = () => {
+    const seed = Math.floor(Math.random() * 0xFFFFFFFF); // seed reproduzível (I1)
+    raceSeed.current = seed;
+    savedFor.current = null;                             // nova corrida → pode salvar de novo
     const t0 = performance.now();
-    const r = runRace(trackKey);
+    const r = runRace(trackKey, seed);
     const ms = performance.now() - t0;
     const ticks = r.track.laps * 3 * 9;
     setResult(r);
@@ -107,6 +118,7 @@ export default function App() {
     setPlaying(false);
     setPerf(null);
     setSelected(null);
+    setShowRanking(false);
   };
 
   // Cancela timers da contagem ao desmontar (sem vazamento).
@@ -150,6 +162,14 @@ export default function App() {
     }
     summary = { podium, fl };
   }
+
+  // Salva o resultado na temporada quando a corrida termina — uma vez por corrida
+  // (guard savedFor evita re-salvar a cada re-render enquanto atEnd continua true).
+  useEffect(() => {
+    if (!result || !atEnd || savedFor.current === result) return;
+    savedFor.current = result;
+    addResult(buildRaceRecord(result, trackKey, new Date().toISOString(), raceSeed.current));
+  }, [result, atEnd, trackKey, addResult]);
 
   return (
     <>
@@ -236,7 +256,21 @@ export default function App() {
             <span className="rs-fl-code">{summary.fl.code}</span>
             <span className="rs-fl-time">{fmtTime(summary.fl.time)}</span>
           </div>
+          <button className="rank-btn" id="btnRanking" onClick={() => setShowRanking(true)}>
+            📋 Ver classificação completa
+          </button>
         </div>
+      )}
+
+      {showRanking && result && (
+        <RaceRanking
+          trackName={result.track.name}
+          classification={result.finalState.map((d, i) => ({
+            pos: i + 1, code: d.code, gapToLeader: d.gapToLeader, bestLapTime: d.bestLapTime,
+          }))}
+          fastestLap={summary ? summary.fl : null}
+          onClose={() => setShowRanking(false)}
+        />
       )}
 
       {result && (

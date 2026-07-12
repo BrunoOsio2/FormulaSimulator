@@ -127,6 +127,28 @@ test('clicar na linha da tabela seleciona o piloto (destaque + label no mapa)', 
   await expect(page.locator('#timingBody tr.row-selected')).toHaveCount(0);
 });
 
+test('fim de corrida: botão abre a classificação completa (22 posições)', async ({ page }) => {
+  await simulate(page, 'interlagos', '30');
+  await page.waitForTimeout(100);
+  // Avança direto ao fim clicando "próximo frame" em rajada (sem esperar o playback).
+  await page.evaluate(() => {
+    const btn = document.querySelector('#btnLapNext') as HTMLButtonElement | null;
+    for (let i = 0; i < 3000 && btn && !btn.disabled; i++) btn.click();
+  });
+  // o resumo aparece com o botão de classificação
+  const btn = page.locator('#btnRanking');
+  await expect(btn).toBeVisible();
+  await btn.click();
+  // modal com as 22 posições
+  await expect(page.locator('.ranking-panel')).toBeVisible();
+  await expect(page.locator('.ranking-list .rank-row')).toHaveCount(22);
+  // fecha no X
+  await page.locator('.ranking-close').click();
+  await expect(page.locator('.ranking-panel')).toHaveCount(0);
+  const errs = (page as unknown as { _errs: string[] })._errs;
+  expect(errs).toHaveLength(0);
+});
+
 test('coluna de gap alterna entre GAP LÍDER e INTERVALO', async ({ page }) => {
   await simulate(page, 'interlagos', '30');
   await page.waitForTimeout(400);

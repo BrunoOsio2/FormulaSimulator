@@ -304,3 +304,52 @@ th:nth-child(7), td:nth-child(7) { width: 110px; }  /* ÚLTIMA VOLTA */
 .rs-fl-label { font-size: 0.6rem; color: var(--time-purple); font-weight: 700; letter-spacing: 0.1em; }
 .rs-fl-code { font-size: 1.05rem; font-weight: 900; color: var(--txt); letter-spacing: 0.05em; }
 .rs-fl-time { font-size: 0.85rem; font-weight: 700; color: var(--time-purple); font-variant-numeric: tabular-nums; }
+
+/* ── Botão de classificação + modal de ranking completo ── */
+.rank-btn {
+  align-self: center; padding: 10px 16px; cursor: pointer; white-space: nowrap;
+  background: var(--f1-red); border: none; color: #fff; border-radius: var(--radius);
+  font-family: var(--font); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.rank-btn:hover { filter: brightness(1.12); }
+
+.ranking-overlay {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+  background: rgba(5, 5, 8, 0.72); padding: 20px;
+}
+.ranking-panel {
+  width: 100%; max-width: 560px; max-height: 85vh; overflow-y: auto;
+  background: var(--f1-carbon); border: 1px solid var(--f1-line);
+  border-top: 4px solid var(--f1-red); border-radius: var(--radius);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+.ranking-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--f1-line);
+  position: sticky; top: 0; background: var(--f1-carbon);
+}
+.ranking-title { font-weight: 900; font-size: 0.9rem; letter-spacing: 0.05em; color: var(--txt); }
+.ranking-close {
+  background: none; border: none; color: var(--txt-mute); cursor: pointer;
+  font-size: 1rem; font-weight: 700; padding: 2px 8px; border-radius: var(--radius);
+}
+.ranking-close:hover { color: var(--txt); background: var(--f1-carbon-2); }
+.ranking-list { padding: 8px; }
+.rank-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: var(--radius);
+}
+.rank-row:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+.rank-row.rank-p1 { background: rgba(245, 197, 24, 0.10); }
+.rank-row.rank-p2 { background: rgba(184, 184, 196, 0.08); }
+.rank-row.rank-p3 { background: rgba(205, 127, 50, 0.08); }
+.rank-pos { width: 24px; text-align: center; font-weight: 900; color: var(--txt-dim);
+            font-variant-numeric: tabular-nums; }
+.rank-bar { width: 4px; height: 20px; border-radius: 1px; }
+.rank-code { font-weight: 900; font-size: 0.95rem; letter-spacing: 0.05em; width: 48px; }
+.rank-gap { margin-left: auto; font-size: 0.75rem; color: var(--txt-mute); font-weight: 700;
+            font-variant-numeric: tabular-nums; text-transform: uppercase; }
+.rank-best { font-size: 0.75rem; color: var(--txt-dim); font-variant-numeric: tabular-nums;
+             min-width: 78px; text-align: right; }
+.rank-best.fl { color: var(--time-purple); font-weight: 700; }
