@@ -91,6 +91,8 @@ export interface SnapshotRow {
   totalTime: number;
   finished: boolean;
   momentum: number;   // forma vigente (C6): -2..+2 (↓↓..↑↑)
+  compound?: 'soft' | 'medium' | 'hard';  // pneu atual (E1)
+  tyreAge?: number;                        // voltas no pneu atual (E1)
 }
 
 export type Snapshot = SnapshotRow[];
@@ -119,6 +121,13 @@ export interface RaceResult {
   // C4: janelas de neutralização (VSC/SC) e o estado de bandeira por frame.
   neutralizations: { startLap: number; endLap: number; type: 'vsc' | 'sc' }[];
   cautionByFrame: ('none' | 'vsc' | 'sc')[];
+  // E1/E2: estratégia de pneus/pit por piloto (stints).
+  strategies: Record<DriverCode, { compound: 'soft' | 'medium' | 'hard'; startLap: number; endLap: number }[]>;
+  // Log da corrida: ultrapassagens (com flag de bandeira), incidentes por piloto,
+  // e momentum por fase de cada piloto — alimentam o dashboard de detalhes.
+  overtakes: { lap: number; passer: DriverCode; passed: DriverCode; caution: boolean }[];
+  incidents: { lap: number; type: 'light' | 'vsc' | 'sc'; code: DriverCode }[];
+  momentumByCode: Record<DriverCode, number[]>;
 }
 
 // Traçado geométrico normalizado.

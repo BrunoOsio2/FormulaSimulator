@@ -151,6 +151,14 @@ th:nth-child(7), td:nth-child(7) { width: 110px; }  /* ÚLTIMA VOLTA */
 .td-momentum.mom-neutral { color: #f5c518; font-size: 0.6rem; } /* neutro — amarelo */
 .td-momentum.mom-down1 { color: #ff9d3a; }   /* em baixa     — laranja-vermelho */
 .td-momentum.mom-down2 { color: #e1483a; }   /* forma ruim   — vermelho forte */
+/* coluna de pneu (E1): círculo do composto + idade em voltas */
+.td-tyre { display: flex; align-items: center; gap: 6px; }
+.tyre-dot {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--f1-line);
+  font-size: 0.62rem; font-weight: 900; color: var(--txt); background: var(--f1-black);
+}
+.tyre-age { font-size: 0.7rem; color: var(--txt-mute); font-variant-numeric: tabular-nums; }
 .td-lap    { color: var(--txt-dim); }
 .td-time   { color: var(--txt); font-variant-numeric: tabular-nums; font-weight: 700; }
 .td-fastest-lap { color: var(--time-purple); font-weight: 700; }
@@ -398,6 +406,59 @@ th:nth-child(7), td:nth-child(7) { width: 110px; }  /* ÚLTIMA VOLTA */
 .rank-best { font-size: 0.75rem; color: var(--txt-dim); font-variant-numeric: tabular-nums;
              min-width: 78px; text-align: right; }
 .rank-best.fl { color: var(--time-purple); font-weight: 700; }
+
+/* ── Botão de detalhes (📊) e dashboard do piloto ── */
+.td-details { text-align: center; }
+.details-btn {
+  background: none; border: none; cursor: pointer; font-size: 0.95rem; padding: 2px 4px;
+  border-radius: var(--radius); opacity: 0.7; line-height: 1;
+}
+.details-btn:hover { opacity: 1; background: var(--f1-carbon-2); }
+
+.dd-overlay {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  background: rgba(5, 5, 8, 0.75); padding: 20px;
+}
+.dd-panel {
+  width: 100%; max-width: 620px; max-height: 88vh; display: flex; flex-direction: column;
+  background: var(--f1-carbon); border: 1px solid var(--f1-line);
+  border-top: 4px solid var(--f1-red); border-radius: var(--radius);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+}
+.dd-head {
+  display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+  border-bottom: 1px solid var(--f1-line);
+}
+.dd-flag { font-size: 1.2rem; }
+.dd-code { font-weight: 900; font-size: 1.3rem; letter-spacing: 0.05em; }
+.dd-sub { font-size: 0.7rem; color: var(--txt-mute); text-transform: uppercase; letter-spacing: 0.08em; }
+.dd-close { margin-left: auto; background: none; border: none; color: var(--txt-mute);
+            cursor: pointer; font-size: 1rem; font-weight: 700; padding: 2px 8px; border-radius: var(--radius); }
+.dd-close:hover { color: var(--txt); background: var(--f1-carbon-2); }
+.dd-tabs { display: flex; gap: 2px; padding: 8px 12px 0; border-bottom: 1px solid var(--f1-line); }
+.dd-tabs button {
+  background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer;
+  color: var(--txt-mute); font-family: var(--font); font-weight: 700; font-size: 0.78rem;
+  padding: 8px 12px; text-transform: uppercase; letter-spacing: 0.03em;
+}
+.dd-tabs button.on { color: var(--txt); border-bottom-color: var(--f1-red); }
+.dd-body { overflow-y: auto; padding: 12px 16px; }
+.dd-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.dd-table th { text-align: left; color: var(--txt-mute); font-size: 0.62rem; font-weight: 700;
+               text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 8px;
+               position: sticky; top: 0; background: var(--f1-carbon); }
+.dd-table td { padding: 5px 8px; border-top: 1px solid var(--f1-line); font-variant-numeric: tabular-nums; }
+.dd-laptime { font-weight: 700; color: var(--txt); }
+.dd-tyre { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
+           border-radius: 50%; border: 2px solid var(--f1-line); font-size: 0.58rem; font-weight: 900;
+           color: var(--txt); background: var(--f1-black); }
+.dd-gain { color: #24d15e; font-weight: 700; }
+.dd-loss { color: #e1483a; font-weight: 700; }
+.dd-empty { color: var(--txt-mute); font-size: 0.82rem; padding: 14px; text-align: center; }
+.dd-section-title { font-size: 0.66rem; font-weight: 800; color: var(--f1-red); text-transform: uppercase;
+                    letter-spacing: 0.08em; margin: 12px 0 4px; }
+.dd-section-title:first-child { margin-top: 0; }
+
 /* cabeçalho de colunas do modal de ranking */
 .ranking-cols {
   display: flex; align-items: center; gap: 10px; padding: 6px 12px;

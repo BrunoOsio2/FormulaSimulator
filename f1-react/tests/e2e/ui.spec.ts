@@ -164,6 +164,23 @@ test('fim de corrida: botão abre a classificação completa (22 posições)', a
   expect(errs).toHaveLength(0);
 });
 
+test('dashboard de detalhes: botão abre modal com 3 tabs', async ({ page }) => {
+  await simulate(page, 'interlagos', '30');
+  await page.waitForTimeout(400);
+  // clica no botão de detalhes da 1ª linha da tabela
+  await page.locator('#timingBody tr:first-child .details-btn').click();
+  await expect(page.locator('.dd-panel')).toBeVisible();
+  await expect(page.locator('.dd-table')).toBeVisible();          // tab Voltas (padrão)
+  await page.locator('.dd-tabs button', { hasText: 'Ultrapassagens' }).click();
+  await expect(page.locator('.dd-body')).toBeVisible();
+  await page.locator('.dd-tabs button', { hasText: 'Incidentes' }).click();
+  await expect(page.locator('.dd-body')).toContainText('Pit stops');
+  await page.locator('.dd-close').click();
+  await expect(page.locator('.dd-panel')).toHaveCount(0);
+  const errs = (page as unknown as { _errs: string[] })._errs;
+  expect(errs).toHaveLength(0);
+});
+
 test('coluna de gap alterna entre GAP LÍDER e INTERVALO', async ({ page }) => {
   await simulate(page, 'interlagos', '30');
   await page.waitForTimeout(400);

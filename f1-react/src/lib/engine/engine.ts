@@ -7,6 +7,7 @@ import { resolveTraffic } from './traffic';
 import { overtakeChance, resolvePass } from './overtake';
 import { buildMomentumSeries, momentumAtLap } from './momentum';
 import { planIncidents, neutralizations, applyNeutralizations } from './incidents';
+import { planStrategy, applyTyres, applyPitStops, stintAtLap, type Stint } from './strategy';
 
 // ─── Motor da corrida ──────────────────────────────────────────────────────────
 // Estratégia:
@@ -32,6 +33,8 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
   // demais consumos de RNG (variação/erros).
   const momentums = drivers.map((d, i) =>
     buildMomentumSeries(d.code, track, new RNG(deriveSeed(master, 0x310AD0 + i))));
+  const momentumByCode: Record<string, number[]> = {};
+  drivers.forEach((d, i) => { momentumByCode[d.code] = momentums[i]; });
   const timelines: Timeline[] = drivers.map((d, i) => ({
     code:   d.code,
     // RNG de variação (seed por piloto) + RNG separado de erros (C5) + momentum (C6),
@@ -41,34 +44,58 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
               new RNG(deriveSeed(master, 0x5A1710 + i)), momentums[i]),
   }));
 
-  // ── Tráfego (C2) + Ultrapassagem (C1) ─────────────────────────────────────
-  // As timelines acima são o pace LIMPO (cada carro sozinho). Aqui aplicamos o
-  // tráfego (preso atrás de um mais lento) e a ultrapassagem: ao cruzar a linha,
-  // 1 tentativa/volta, decidida por overtaking×defending×pista via RNG dedicado
-  // (deriveSeed(master, salt) → determinístico por seed). O event.miniTime limpo
-  // é PRESERVADO — cores refletem o ritmo real, não o atraso por tráfego.
-  const passRng = new RNG(deriveSeed(master, 0x0ADDDECA));
-  const tryPass = (attacker: number, defender: number, _lap: number): boolean => {
-    const chance = overtakeChance(drivers[attacker].code, drivers[defender].code, track);
-    return resolvePass(passRng.next(), chance);
-  };
-  const clean = timelines.map(t => t.events.map(e => e.miniTime));
-  const resolved = resolveTraffic(clean, startOffsets, undefined, tryPass);
-  timelines.forEach((t, p) => {
-    for (let k = 0; k < t.events.length; k++) t.events[k].time = resolved[p][k];
-  });
-
-  // ── Incidentes + Safety Car (C4) ──────────────────────────────────────────
-  // Sorteia a agenda de incidentes (RNG dedicado) e neutraliza o pelotão nas
-  // janelas de VSC/SC: desacelera todos e, no SC, agrupa atrás do carro de
-  // segurança. Reescreve os tempos; o miniTime limpo é preservado (cores).
-  const incidents = planIncidents(track, TOTAL_LAPS, new RNG(deriveSeed(master, 0x5AFEC)));
+  // ── Incidentes + Safety Car (C4) — planejados PRIMEIRO ────────────────────
+  // A agenda de SC é determinística e precisa existir ANTES da estratégia, para
+  // a IA de pit poder reagir ao safety car (parar sob SC = pit barato).
+  const incidents = planIncidents(track, TOTAL_LAPS, drivers.map(d => d.code), new RNG(deriveSeed(master, 0x5AFEC)));
   const neuts = neutralizations(incidents);
-  applyNeutralizations(timelines, neuts, track.baseLap);
   const cautionAtLap = (lap: number): 'none' | 'vsc' | 'sc' => {
     for (const z of neuts) if (lap >= z.startLap && lap < z.endLap) return z.type;
     return 'none';
   };
+
+  // ── Estratégia + Pneus + Pit stops (E1/E2) ────────────────────────────────
+  // Cada carro tem no máx 1 jogo de cada composto; a parada reage ao SC. Aplica
+  // o desgaste (applyTyres) e o custo do pit (applyPitStops) sobre os mini-tempos
+  // LIMPOS, ANTES do tráfego/neutralização. RNG dedicado por piloto.
+  const strategies: Record<string, Stint[]> = {};
+  drivers.forEach((d, i) => {
+    strategies[d.code] = planStrategy(d.code, track, TOTAL_LAPS, incidents,
+      new RNG(deriveSeed(master, 0x71235 + i)));
+  });
+  applyTyres(timelines, strategies, track);
+  applyPitStops(timelines, strategies, track);
+
+  // ── Tráfego (C2) + Ultrapassagem (C1) ─────────────────────────────────────
+  // As timelines acima já têm pneu+pit. Aqui aplicamos o tráfego (preso atrás de
+  // um mais lento) e a ultrapassagem: ao cruzar a linha, 1 tentativa/volta,
+  // decidida por overtaking×defending×pista via RNG dedicado. O event.miniTime é
+  // preservado — cores refletem o ritmo, não o atraso por tráfego.
+  const passRng = new RNG(deriveSeed(master, 0x0ADDDECA));
+  // Log de ultrapassagens: registra cada passe concedido com a volta e se estava
+  // sob bandeira (VSC/SC) — a UI ignora os sob caution. `lap` vem do resolveTraffic.
+  const overtakes: { lap: number; passer: string; passed: string; caution: boolean }[] = [];
+  const tryPass = (attacker: number, defender: number, lap: number): boolean => {
+    const chance = overtakeChance(drivers[attacker].code, drivers[defender].code, track);
+    const ok = resolvePass(passRng.next(), chance);
+    if (ok) {
+      overtakes.push({
+        lap, passer: drivers[attacker].code, passed: drivers[defender].code,
+        caution: cautionAtLap(lap) !== 'none',
+      });
+    }
+    return ok;
+  };
+  // base do tráfego = durações atuais (pós pneu+pit) de cada mini
+  const durNow = timelines.map(t => t.events.map((e, k) => k === 0 ? e.miniTime : e.time - t.events[k - 1].time));
+  const resolved = resolveTraffic(durNow, startOffsets, undefined, tryPass);
+  timelines.forEach((t, p) => {
+    for (let k = 0; k < t.events.length; k++) t.events[k].time = resolved[p][k];
+  });
+
+  // ── Neutralização do Safety Car (C4) ──────────────────────────────────────
+  // Desacelera todos nas janelas de VSC/SC e agrupa no SC. Reescreve os tempos.
+  applyNeutralizations(timelines, neuts, track.baseLap);
 
   // Estado de exibição por piloto
   const dstate = timelines.map(t => ({
@@ -92,6 +119,8 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
   const lapSnapshots: Snapshot[] = [];
   const cautionByFrame: ('none' | 'vsc' | 'sc')[] = [];
   const TOTAL_MINIS = TOTAL_LAPS * 3 * MINI_PER_SECTOR;
+  const TAIL_SUBSAMPLE = 6; // fase tail: 1 frame a cada N eventos (evita arrastar no fim)
+  let tailCount = 0;
   let framesEmitted = 0;
   let leaderDone = false;
 
@@ -118,7 +147,9 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
     });
     withTiming.sort((a, b) => a.timeToN - b.timeToN);
 
-    return withTiming.map(({ d, i, timeToN }, pos) => ({
+    return withTiming.map(({ d, i, timeToN }, pos) => {
+      const st = stintAtLap(strategies[d.code], d.lapsCompleted);
+      return {
       code:                 d.code,
       lap:                  d.lapsCompleted,
       sector:               d.sector,
@@ -132,7 +163,9 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
       totalTime:            d.totalTime,
       finished:             d.lapsCompleted >= TOTAL_LAPS,
       momentum:             momentumAtLap(momentums[i], d.lapsCompleted),
-    }));
+      compound:             st.compound,
+      tyreAge:              st.age,
+    }; });
   };
 
   // Processa TODOS os eventos até cada piloto completar a distância total.
@@ -189,9 +222,15 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
       if (ev.isLapEnd) lapSnapshots.push(frame);
       if (ds.miniCompleted >= TOTAL_MINIS) leaderDone = true;
     } else if (leaderDone) {
-      const frame = buildFrame();
-      sectorSnapshots.push(frame);
-      cautionByFrame.push(cautionOf(frame));
+      // Fase tail (líder já terminou): subamostra para não arrastar — emite 1
+      // frame a cada TAIL_SUBSAMPLE eventos, mas sempre no fim de volta (carro
+      // cruzando a linha) e no último evento de cada piloto (chegada visível).
+      const last = ptrs[minIdx] >= timelines[minIdx].events.length;
+      if (ev.isLapEnd || last || (++tailCount % TAIL_SUBSAMPLE === 0)) {
+        const frame = buildFrame();
+        sectorSnapshots.push(frame);
+        cautionByFrame.push(cautionOf(frame));
+      }
     }
   }
 
@@ -269,5 +308,5 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
     sectorColors[`${c.code}|${c.lap}|${c.sector}`] = cls;
   }
 
-  return { finalState, sectorSnapshots, lapSnapshots, track, miniRef, personalBest, sectorRef, sectorPB, sectorColors, timelines, neutralizations: neuts, cautionByFrame };
+  return { finalState, sectorSnapshots, lapSnapshots, track, miniRef, personalBest, sectorRef, sectorPB, sectorColors, timelines, neutralizations: neuts, cautionByFrame, strategies, overtakes, incidents, momentumByCode };
 }

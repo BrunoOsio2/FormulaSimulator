@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { RaceResult, Snapshot } from '../lib/engine/types';
 import { fmtTime, fmtGap, fmtSec } from '../lib/engine/format';
 import { DRIVER_COLOR } from '../lib/data/drivers';
+import { COMPOUND_COLOR, COMPOUNDS } from '../lib/engine/tyres';
 
 // Calcula a classe de cor de cada mini-setor de cada piloto no frame atual.
 // Setor completo → cor consolidada (sectorColors); em andamento → neutro/vazio.
@@ -44,11 +45,12 @@ interface Props {
   result: RaceResult | null;
   selected: string | null;
   onSelect: (code: string | null) => void;
+  onDetails: (code: string) => void;
 }
 
 type GapMode = 'leader' | 'interval';
 
-export function TimingTable({ frame, result, selected, onSelect }: Props) {
+export function TimingTable({ frame, result, selected, onSelect, onDetails }: Props) {
   // Modo da coluna de gap: ao líder (P1) ou intervalo para o carro da frente.
   const [gapMode, setGapMode] = useState<GapMode>('leader');
 
@@ -57,11 +59,11 @@ export function TimingTable({ frame, result, selected, onSelect }: Props) {
       <div className="table-wrap">
         <table id="timingTable">
           <thead><tr>
-            <th>POS</th><th>PILOTO</th><th>FORMA</th><th>VOLTA</th><th>MELHOR VOLTA</th>
-            <th>GAP LÍDER</th><th className="th-mini">MINI-SETORES</th><th>ÚLTIMA VOLTA</th>
+            <th>POS</th><th>PILOTO</th><th>FORMA</th><th>PNEU</th><th>VOLTA</th><th>MELHOR VOLTA</th>
+            <th>GAP LÍDER</th><th className="th-mini">MINI-SETORES</th><th>ÚLTIMA VOLTA</th><th></th>
           </tr></thead>
           <tbody id="timingBody">
-            <tr><td colSpan={8} className="empty-state">Clique em "Simular Corrida" para começar</td></tr>
+            <tr><td colSpan={10} className="empty-state">Clique em "Simular Corrida" para começar</td></tr>
           </tbody>
         </table>
       </div>
@@ -79,15 +81,16 @@ export function TimingTable({ frame, result, selected, onSelect }: Props) {
       <table id="timingTable">
         <colgroup>
           <col style={{ width: 46 }} /><col style={{ width: 74 }} /><col style={{ width: 52 }} />
-          <col style={{ width: 54 }} /><col style={{ width: 96 }} /><col style={{ width: 96 }} />
-          <col style={{ width: 360 }} /><col style={{ width: 96 }} />
+          <col style={{ width: 60 }} /><col style={{ width: 54 }} /><col style={{ width: 96 }} />
+          <col style={{ width: 96 }} /><col style={{ width: 360 }} /><col style={{ width: 96 }} />
+          <col style={{ width: 44 }} />
         </colgroup>
         <thead><tr>
-          <th>POS</th><th>PILOTO</th><th>FORMA</th><th>VOLTA</th><th>MELHOR VOLTA</th>
+          <th>POS</th><th>PILOTO</th><th>FORMA</th><th>PNEU</th><th>VOLTA</th><th>MELHOR VOLTA</th>
           <th className="th-gap-toggle" onClick={toggleGap} title="Clique para alternar entre gap ao líder e intervalo">
             {gapMode === 'leader' ? 'GAP LÍDER' : 'INTERVALO'} ⇅
           </th>
-          <th className="th-mini">MINI-SETORES</th><th>ÚLTIMA VOLTA</th>
+          <th className="th-mini">MINI-SETORES</th><th>ÚLTIMA VOLTA</th><th></th>
         </tr></thead>
         <tbody id="timingBody">
           {frame.map((r, i) => {
@@ -115,6 +118,17 @@ export function TimingTable({ frame, result, selected, onSelect }: Props) {
                   const m = MOMENTUM_ARROW[r.momentum] || MOMENTUM_ARROW[0];
                   return <td className={`td-momentum ${m.cls}`} title={m.title}>{m.arrow}</td>;
                 })()}
+                {(() => {
+                  const c = r.compound;
+                  if (!c) return <td className="td-tyre" />;
+                  const label = COMPOUNDS[c].label;
+                  return (
+                    <td className="td-tyre" title={`${c} · ${r.tyreAge ?? 0} voltas`}>
+                      <span className="tyre-dot" style={{ borderColor: COMPOUND_COLOR[c] }}>{label}</span>
+                      <span className="tyre-age">{r.tyreAge ?? 0}</span>
+                    </td>
+                  );
+                })()}
                 <td className="td-lap">{r.lap}</td>
                 <td className={bestClass}>{fmtTime(r.bestLapTime)}</td>
                 <td className={gapCls}>{fmtGap(gapValue)}</td>
@@ -140,6 +154,10 @@ export function TimingTable({ frame, result, selected, onSelect }: Props) {
                   </div>
                 </td>
                 <td className="td-time">{fmtTime(r.lastLapTime)}</td>
+                <td className="td-details">
+                  <button className="details-btn" title="Detalhes do piloto"
+                          onClick={(e) => { e.stopPropagation(); onDetails(r.code); }}>📊</button>
+                </td>
               </tr>
             );
           })}

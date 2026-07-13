@@ -230,9 +230,11 @@ describe('runRace (invariantes)', () => {
     });
   }
   it('VER vence Interlagos com frequência dominante', () => {
+    // Com estratégia de pneus/pit (E1/E2) surgem viradas — VER segue dominante
+    // (~80%), mas não invencível. Seeds fixas → teste determinístico (sem flaky).
     let vios = 0;
-    for (let i = 0; i < 20; i++) if (runRace('interlagos').finalState[0].code !== 'VER') vios++;
-    expect(vios).toBeLessThanOrEqual(3);
+    for (let s = 0; s < 20; s++) if (runRace('interlagos', s).finalState[0].code !== 'VER') vios++;
+    expect(vios).toBeLessThanOrEqual(7);
   });
 });
 

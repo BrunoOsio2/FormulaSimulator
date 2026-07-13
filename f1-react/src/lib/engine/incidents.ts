@@ -19,13 +19,14 @@ const VSC_DUR = 2;                   // voltas de duração do VSC
 const SC_DUR  = 3;                   // voltas de duração do SC
 
 export type IncidentType = 'light' | 'vsc' | 'sc';
-export interface Incident { lap: number; type: IncidentType; durLaps: number; }
+export interface Incident { lap: number; type: IncidentType; durLaps: number; code: string; }
 export interface Neutralization { startLap: number; endLap: number; type: 'vsc' | 'sc'; }
 
 // Sorteia a agenda de incidentes da corrida. Probabilidade escalada por
 // safetyCarProbability da pista. Frequência ALTA (demo): fácil de ver/testar.
-// Determinístico dado o RNG.
-export function planIncidents(track: Track, laps: number, rng: RNG): Incident[] {
+// Cada incidente é atribuído a um piloto (`codes` = grid, do fundo p/ frente tem
+// mais chance de se envolver). Determinístico dado o RNG.
+export function planIncidents(track: Track, laps: number, codes: string[], rng: RNG): Incident[] {
   const scProb = ((track.safetyCarProbability as number) ?? 5) / 10; // 0.1..1.0
   const incidents: Incident[] = [];
   let cooldown = 0; // voltas restantes de neutralização (evita sobreposição)
@@ -41,7 +42,11 @@ export function planIncidents(track: Track, laps: number, rng: RNG): Incident[] 
       if (roll < 0.25) { type = 'light'; durLaps = 0; }
       else if (roll < 0.55) { type = 'vsc'; durLaps = VSC_DUR; }
       else { type = 'sc'; durLaps = SC_DUR; }
-      incidents.push({ lap, type, durLaps });
+      // piloto envolvido: viés para o fundo do grid (mais azarados). Índice
+      // = floor(r² × N) → concentra nos índices maiores (fim do grid).
+      const r = rng.next();
+      const idx = Math.min(codes.length - 1, Math.floor((0.3 + 0.7 * r) * codes.length));
+      incidents.push({ lap, type, durLaps, code: codes[idx] });
       cooldown = durLaps + 2; // pausa após a janela
     }
   }

@@ -15,15 +15,17 @@ export function useRaceStartLights() {
   const start = useCallback(() => {
     const { setLights, setPlaying } = useRaceStore.getState();
     cancel();
+    // luzes acendem mais ágil (0.55s cada) — mantém a tensão sem delay longo
+    const STEP = 550;
     for (let n = 1; n <= 5; n++) {
-      timers.current.push(setTimeout(() => setLights(n), n * 900));
+      timers.current.push(setTimeout(() => setLights(n), n * STEP));
     }
-    const outAt = 5 * 900 + 1100;                 // segura as 5 luzes ~1.1s
+    const outAt = 5 * STEP + 700;                 // segura as 5 luzes ~0.7s
     timers.current.push(setTimeout(() => setLights('out'), outAt));
     timers.current.push(setTimeout(() => {        // apaga tudo → larga
       setLights(null);
       setPlaying(true);
-    }, outAt + 600));
+    }, outAt + 350));
   }, [cancel]);
 
   // limpa os timers ao desmontar (uma vez)

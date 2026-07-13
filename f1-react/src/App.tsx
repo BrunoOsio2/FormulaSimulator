@@ -6,6 +6,7 @@ import { TrackPanel } from './components/TrackPanel';
 import { TimingTable } from './components/TimingTable';
 import { TrackMap } from './components/TrackMap';
 import { RaceRanking } from './components/RaceRanking';
+import { DriverDetails } from './components/DriverDetails';
 import { useRaceStore, SPEEDS, SPEED_VALUES } from './lib/stores/raceStore';
 import { usePlayback } from './hooks/usePlayback';
 import { useRaceStartLights } from './hooks/useRaceStartLights';
@@ -23,6 +24,7 @@ export default function App() {
   const perf        = useRaceStore(s => s.perf);
   const lights      = useRaceStore(s => s.lights);
   const showRanking = useRaceStore(s => s.showRanking);
+  const detailsCode = useRaceStore(s => s.detailsCode);
 
   const setTrackKey  = useRaceStore(s => s.setTrackKey);
   const run          = useRaceStore(s => s.run);
@@ -36,6 +38,8 @@ export default function App() {
   const setSelected  = useRaceStore(s => s.setSelected);
   const openRanking  = useRaceStore(s => s.openRanking);
   const closeRanking = useRaceStore(s => s.closeRanking);
+  const openDetails  = useRaceStore(s => s.openDetails);
+  const closeDetails = useRaceStore(s => s.closeDetails);
 
   const trackWrapRef = useRef<HTMLDivElement>(null);   // âncora p/ scroll suave até a pista
   const startLights = useRaceStartLights();            // sequência do semáforo (imperativo)
@@ -151,6 +155,8 @@ export default function App() {
                 <span className="rs-bar" style={{ background: DRIVER_COLOR[d.code] || '#888' }} />
                 <span className="rs-code">{d.code}</span>
                 <span className="rs-gap">{i === 0 ? 'VENCEDOR' : fmtGap(d.gap)}</span>
+                <button className="details-btn" title="Detalhes do piloto"
+                        onClick={() => openDetails(d.code)}>📊</button>
               </div>
             ))}
           </div>
@@ -178,6 +184,7 @@ export default function App() {
             }))}
             fastestLap={summary ? summary.fl : null}
             onClose={closeRanking}
+            onDetails={openDetails}
           />
         );
       })()}
@@ -202,7 +209,11 @@ export default function App() {
         </div>
       )}
 
-      <TimingTable frame={frame} result={result} selected={selected} onSelect={setSelected} />
+      <TimingTable frame={frame} result={result} selected={selected} onSelect={setSelected} onDetails={openDetails} />
+
+      {detailsCode && result && (
+        <DriverDetails result={result} code={detailsCode} upToLap={atEnd ? Infinity : (leader?.lap ?? 0)} onClose={closeDetails} />
+      )}
     </>
   );
 }

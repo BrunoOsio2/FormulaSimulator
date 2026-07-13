@@ -34,6 +34,7 @@ interface RaceState {
   perf: Perf | null;
   lights: number | 'out' | null;   // semáforo: 0..5 luzes, 'out' apaga, null sem corrida
   showRanking: boolean;
+  detailsCode: string | null;       // piloto aberto no dashboard de detalhes (ou null)
   seed: number;                     // seed da corrida atual (reprodutibilidade / salvar)
 
   // actions
@@ -52,6 +53,8 @@ interface RaceState {
   setLights: (l: number | 'out' | null) => void;
   openRanking: () => void;
   closeRanking: () => void;
+  openDetails: (code: string) => void;
+  closeDetails: () => void;
 }
 
 const total = (r: RaceResult | null) => (r ? r.sectorSnapshots.length : 0);
@@ -66,6 +69,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
   perf: null,
   lights: null,
   showRanking: false,
+  detailsCode: null,
   seed: 0,
 
   setTrackKey: (k) => set({ trackKey: k }),
@@ -88,7 +92,7 @@ export const useRaceStore = create<RaceState>((set, get) => ({
 
   reset: () => set({
     result: null, snapIdx: 0, playing: false, perf: null,
-    selected: null, showRanking: false, lights: null,
+    selected: null, showRanking: false, lights: null, detailsCode: null,
   }),
 
   setSnap: (i) => {
@@ -122,6 +126,8 @@ export const useRaceStore = create<RaceState>((set, get) => ({
   setLights: (l) => set({ lights: l }),
   openRanking: () => set({ showRanking: true }),
   closeRanking: () => set({ showRanking: false }),
+  openDetails: (code) => set({ detailsCode: code }),
+  closeDetails: () => set({ detailsCode: null }),
 }));
 
 // Persiste as preferências (pista/velocidade) no localStorage, como antes.

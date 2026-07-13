@@ -8,11 +8,12 @@ interface Props {
   classification: ResultRow[];
   fastestLap: { code: string; time: number } | null;
   onClose: () => void;
+  onDetails?: (code: string) => void;
 }
 
 // Modal com a classificação completa da corrida (todas as posições). Pódio
 // destacado; fecha no X, no backdrop ou com Esc.
-export function RaceRanking({ trackName, classification, fastestLap, onClose }: Props) {
+export function RaceRanking({ trackName, classification, fastestLap, onClose, onDetails }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -53,6 +54,10 @@ export function RaceRanking({ trackName, classification, fastestLap, onClose }: 
                 <span className={`rank-best ${isFL ? 'fl' : ''}`}>
                   {fmtTime(r.bestLapTime)}{isFL ? ' ⏱' : ''}
                 </span>
+                {onDetails && (
+                  <button className="details-btn" title="Detalhes do piloto"
+                          onClick={() => onDetails(r.code)}>📊</button>
+                )}
               </div>
             );
           })}

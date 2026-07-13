@@ -8,19 +8,25 @@ import { RNG, deriveSeed } from '../../src/lib/engine/rng';
 import { TRACKS } from '../../src/lib/data/tracks';
 import { runRace } from '../../src/lib/engine/engine';
 
+const CODES = ['VER', 'NOR', 'LEC', 'HAM', 'RUS', 'LIN']; // amostra de grid p/ os testes
+
 describe('planIncidents (C4)', () => {
   it('determinístico: mesma seed → mesma agenda', () => {
-    const a = planIncidents(TRACKS.monaco, 78, new RNG(deriveSeed(5, 1)));
-    const b = planIncidents(TRACKS.monaco, 78, new RNG(deriveSeed(5, 1)));
+    const a = planIncidents(TRACKS.monaco, 78, CODES, new RNG(deriveSeed(5, 1)));
+    const b = planIncidents(TRACKS.monaco, 78, CODES, new RNG(deriveSeed(5, 1)));
     expect(a).toEqual(b);
   });
   it('gera incidentes e nunca na 1ª nem na última volta', () => {
-    const inc = planIncidents(TRACKS.monaco, 78, new RNG(deriveSeed(1, 1)));
+    const inc = planIncidents(TRACKS.monaco, 78, CODES, new RNG(deriveSeed(1, 1)));
     expect(inc.length).toBeGreaterThan(0);
     inc.forEach(i => { expect(i.lap).toBeGreaterThanOrEqual(1); expect(i.lap).toBeLessThan(77); });
   });
+  it('cada incidente é atribuído a um piloto do grid', () => {
+    const inc = planIncidents(TRACKS.monaco, 78, CODES, new RNG(deriveSeed(1, 1)));
+    inc.forEach(i => expect(CODES).toContain(i.code));
+  });
   it('janelas de neutralização não se sobrepõem', () => {
-    const neuts = neutralizations(planIncidents(TRACKS.monaco, 78, new RNG(deriveSeed(9, 1))));
+    const neuts = neutralizations(planIncidents(TRACKS.monaco, 78, CODES, new RNG(deriveSeed(9, 1))));
     const sorted = [...neuts].sort((a, b) => a.startLap - b.startLap);
     for (let i = 1; i < sorted.length; i++) expect(sorted[i].startLap).toBeGreaterThanOrEqual(sorted[i - 1].endLap);
   });
