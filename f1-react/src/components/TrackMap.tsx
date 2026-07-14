@@ -196,16 +196,28 @@ export function TrackMap({ result, snapIdx, playing, speedMs, selected, onSelect
       const orderByCode: Record<string, number> = {};
       frame.forEach((d, pos) => { orderByCode[d.code] = pos; });
 
-      // Posição de cada carro pela fração-de-volta real. O grid de largada já
-      // está no backend (offset de tempo por posição em computeTimeline), então
-      // os retardatários já aparecem atrás — sem stagger visual artificial.
+      // Posição de cada carro: antes da sua largada usa posição de grid (fila
+      // na reta); depois usa a fração-de-volta real. Cada posição de grid ocupa
+      // GRID_GAP atrás da linha (sf), alternando em 2 colunas estilo F1.
       // (sf = startFrac já calculado acima para a bandeira de largada.)
-      const drawList = result.timelines.map(t => {
-        const frac = driverLapFraction(t.events, T);
-        // desloca a fração de volta pela linha de largada real (startFrac);
-        // pointAtLapFraction faz wrap, então somar funciona cruzando o ponto 0.
-        const warped = warpLapFraction(warpRef.current, frac);
-        const p = pointAtLapFraction(path, warped + sf);
+      const GRID_GAP = 0.0035;   // fração de volta entre posições (~10–12 m)
+      const drawList = result.timelines.map((t, gridIdx) => {
+        const firstEventT = t.events[0]?.time ?? 0;
+        let p;
+        if (T < firstEventT) {
+          // carro ainda não largou → posiciona na fila de grid:
+          // P1 na linha, P2 meio grid atrás na coluna da direita, P3 1 gap atrás
+          // na esquerda, etc. (alternância de colunas como numa grelha real de F1)
+          const row    = Math.floor(gridIdx / 2);           // linha (0, 1, 2…)
+          const col    = gridIdx % 2;                       // 0=esq, 1=dir
+          const colOff = (col - 0.5) * 0.0008;             // pequeno offset lateral
+          const fracBack = sf - (row + col * 0.5) * GRID_GAP + colOff;
+          p = pointAtLapFraction(path, fracBack);
+        } else {
+          const frac = driverLapFraction(t.events, T);
+          const warped = warpLapFraction(warpRef.current, frac);
+          p = pointAtLapFraction(path, warped + sf);
+        }
         return { code: t.code, pos: orderByCode[t.code] ?? 99, p };
       }).sort((a, b) => b.pos - a.pos);
 
