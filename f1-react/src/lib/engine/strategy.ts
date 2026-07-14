@@ -71,8 +71,10 @@ export function stintAtLap(stints: Stint[], lap: number): { compound: Compound; 
 }
 
 // ── Camada de pneus: aplica o desgaste aos mini-tempos (E1) ──────────────────
-// Reescreve event.miniTime e re-acumula event.time. Preserva o tempo limpo em
-// event.cleanMini (para cores) — capturado antes.
+// Reescreve event.time aplicando o fator de pneu. Preserva os erros de
+// pilotagem (C5): o miniTime limpo é a base para o fator de pneu, mas o
+// erro (diferença entre duração real e miniTime) é adicionado de volta, para
+// que o tráfego enxergue o carro mais lento e outros carros possam passar.
 export function applyTyres(timelines: Timeline[], strategies: Record<string, Stint[]>, track: Track): void {
   for (const t of timelines) {
     const stints = strategies[t.code];
@@ -82,8 +84,13 @@ export function applyTyres(timelines: Timeline[], strategies: Record<string, Sti
     for (let k = 0; k < ev.length; k++) {
       const { compound, age } = stintAtLap(stints, ev[k].lap);
       const mult = tyreMultiplier(compound, age, track, t.code);
-      const dur = ev[k].miniTime * mult;
-      acc += dur;
+      // duração real antes do pneu (inclui erros C5 aplicados no computeTimeline)
+      const prevTime = k === 0 ? acc : ev[k - 1].time;
+      const realDur = ev[k].time - prevTime;
+      // erro = excesso acima do miniTime limpo (pode ser 0 se não houve erro)
+      const mistake = Math.max(0, realDur - ev[k].miniTime);
+      // re-aplica o fator de pneu só sobre o pace limpo, preserva o erro
+      acc += ev[k].miniTime * mult + mistake;
       ev[k].time = acc;
     }
   }
