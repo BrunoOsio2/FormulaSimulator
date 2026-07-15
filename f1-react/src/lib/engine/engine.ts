@@ -25,9 +25,9 @@ export function runRace(trackKey = 'interlagos', seed?: number): RaceResult {
   // única). Cada piloto recebe uma seed derivada de (master, índice de grid) via
   // deriveSeed — determinística e descorrelacionada entre pilotos.
   const master = seed ?? Math.floor(Math.random() * 0xFFFFFFFF);
-  // startOffset = i * gapPerPos: grid de largada — P1 (i=0) larga em 0, cada
-  // posição atrás larga um pouco depois, criando gaps reais desde o começo.
-  const startOffsets = drivers.map((_, i) => i * track.gapPerPos);
+  // Largada parada real: TODOS largam no mesmo instante (t=0). A posição de grid
+  // não dá vantagem de tempo — a ordem final emerge do ritmo (pace) + tráfego.
+  const startOffsets = drivers.map(() => 0);
   // Momentum / forma (C6): série por fase de cada piloto, enviesada pelo handicap.
   // RNG dedicado por piloto (salt distinto) → determinístico e sem perturbar os
   // demais consumos de RNG (variação/erros).

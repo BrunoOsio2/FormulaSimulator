@@ -123,13 +123,8 @@ export function TrackMap({ result, snapIdx, playing, speedMs, selected, onSelect
       if (selCam) {
         const t = result.timelines.find(tl => tl.code === selCam);
         if (t) {
-          // mesma compensação de largada usada no desenho dos carros (abaixo),
-          // para a câmera centrar na posição REAL do carro selecionado.
-          const gi = result.timelines.indexOf(t);
-          const startOffset = gi * (result.track.gapPerPos ?? 0);
-          const gridSpatial = startOffset / (result.track.baseLap ?? 90);
-          const frac = driverLapFraction(t.events, T + startOffset);
-          const p = pointAtLapFraction(path, warpLapFraction(warpRef.current, frac) + (result.track.startFrac ?? 0) - gridSpatial);
+          const frac = driverLapFraction(t.events, T);
+          const p = pointAtLapFraction(path, warpLapFraction(warpRef.current, frac) + (result.track.startFrac ?? 0));
           targetZoom = ZOOM_IN; targetCx = mapX(p); targetCy = mapY(p);
         }
       }
@@ -201,25 +196,20 @@ export function TrackMap({ result, snapIdx, playing, speedMs, selected, onSelect
       const orderByCode: Record<string, number> = {};
       frame.forEach((d, pos) => { orderByCode[d.code] = pos; });
 
-      // Posição de cada carro — LARGADA PARADA estilo F1 (todos saem juntos):
+      // Posição de cada carro — LARGADA PARADA estilo F1 (todos saem no mesmo t=0):
       //
-      // O motor embute o grid como offset de TEMPO (startOffset = gridIdx*gapPerPos),
-      // o que congelaria cada carro até seu instante de largar → largada "rolante"
-      // (VER sai sozinho e o resto espera). Para uma largada parada real, aqui:
-      //   1. compensamos o relógio de cada carro pelo seu startOffset (Teff), de modo
-      //      que TODOS saem no mesmo instante (lights-out), sem liberação um-a-um;
-      //   2. reconvertemos o gap de grid num deslocamento ESPACIAL persistente
-      //      (startOffset/baseLap) — P2 fica fisicamente atrás de P1 no traçado.
-      // Resultado: o gap renderizado entre dois carros = o gap real de tempo, mas a
-      // largada é simultânea. (sf = startFrac, já calculado acima.)
-      const gapPerPos = result.track.gapPerPos ?? 0;
-      const baseLap   = result.track.baseLap ?? 90;
+      // O motor agora larga todos em t=0 (sem offset de tempo). Para a grelha não
+      // ficar empilhada num ponto só, aplicamos um deslocamento ESPACIAL de grid
+      // (gridIdx atrás da linha) que se DISSIPA na 1ª volta — some quando o carro
+      // já andou o bastante para o pace assumir a ordem. Isso dá a grelha parada
+      // sem interferir nos gaps reais do motor. (sf = startFrac.)
+      const GRID_GAP = 0.0035;   // fração de volta entre posições (~10–12 m)
       const drawList = result.timelines.map((t, gridIdx) => {
-        const startOffset  = gridIdx * gapPerPos;          // instante de largada no motor
-        const Teff         = T + startOffset;              // relógio compensado → sai junto
-        const gridSpatial  = startOffset / baseLap;        // gap de tempo → gap de distância
-        const frac   = driverLapFraction(t.events, Teff);
+        const frac   = driverLapFraction(t.events, T);
         const warped = warpLapFraction(warpRef.current, frac);
+        // grelha visual: recuo por posição que desaparece linearmente até frac≈0.5
+        const fade   = Math.max(0, 1 - warped / 0.5);
+        const gridSpatial = gridIdx * GRID_GAP * fade;
         const p = pointAtLapFraction(path, warped + sf - gridSpatial);
         return { code: t.code, pos: orderByCode[t.code] ?? 99, p };
       }).sort((a, b) => b.pos - a.pos);
